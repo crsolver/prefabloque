@@ -2,12 +2,17 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Column } from './column';
 import { userData } from 'three/tsl';
+import { Block } from './block';
 
 export interface Position {
   x: number,
   y: number,
   z: number,
 }
+
+export const handleMaterial = new THREE.MeshBasicMaterial({ 
+	color: 0xff8800,
+});
 
 // Constants
 export const BLOCK_WIDTH = 1.41;
@@ -24,10 +29,11 @@ type Direction = 'north' | 'south' | 'east' | 'west'
 
 interface State {
   columns: Column[],
-  blocks: THREE.Mesh[],
+  blocks: Block[],
   selectedColumn: Column | null,
   hoverColumn: Column | null,
-  selectedBlocks: THREE.Mesh[],
+  hoverBlock: Block | null,
+  selectedBlocks: Block[],
   dragColHandle: {
     handle: THREE.Object3D;
     column: Column;
@@ -47,8 +53,9 @@ const state: State = {
   columns: [], 
   blocks: [],
   selectedColumn: null,
-  hoverColumn: null,
   selectedBlocks: [],
+  hoverColumn: null,
+  hoverBlock: null,
   dragColHandle: null,
   isDragging: false,
   dragStart: null,
@@ -57,11 +64,10 @@ const state: State = {
   multiBlockMode: false
 };
 
-
 // Scene setup ________________________________________________________________
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x141414);
-scene.fog = new THREE.Fog(0x0a0e17, 10, 50);
+scene.fog = new THREE.Fog(0x0a0e17, 30, 50);
 
 const camera = new THREE.PerspectiveCamera(
   60,
@@ -152,13 +158,19 @@ renderer.domElement.addEventListener('mouseup', onMouseUp);
 
 // ____________________________________________________________________________
 function removeHoverAll() {
+  state.hoverBlock?.setHover(false);
   state.hoverColumn?.setHover(false);
   state.hoverColumn = null;
+  state.hoverBlock = null;
 }
 
 function deselectAll() {
   state.selectedColumn?.setSelected(false);
   state.selectedColumn = null;
+  for (let blck of state.selectedBlocks) {
+    blck.setSelected(false)
+  }
+  state.selectedBlocks = []
 }
 
 function selectColumn(column: Column) {
@@ -167,10 +179,22 @@ function selectColumn(column: Column) {
   column.setSelected(true);
 }
 
+function selectBlock(block: Block) {
+  deselectAll();
+  state.selectedBlocks.push(block);
+  block.setSelected(true);
+}
+
 function hoverColumn(column: Column) {
   removeHoverAll();
   state.hoverColumn = column;
   column.setHover(true);
+}
+
+function hoverBlock(block: Block) {
+  removeHoverAll();
+  state.hoverBlock = block;
+  block.setHover(true);
 }
 
 function startColumnDrag(column: Column, handle: THREE.Object3D, direction: Direction, point: THREE.Vector3) {
@@ -198,6 +222,7 @@ function onMouseDown(event: MouseEvent) {
   const intersects = raycaster.intersectObjects(scene.children, true);
 
   let columnFound = false;
+  let blockFound = false;
   let foundHandle: {userData: Record<string, any>, handle: THREE.Object3D, point: THREE.Vector3} | null = null;
   
   for (const intersect of intersects) {
@@ -205,6 +230,10 @@ function onMouseDown(event: MouseEvent) {
     if (userData.type === 'column') {
       columnFound = true;
       selectColumn(userData.column)
+      break;
+    } else if (userData.type === 'block') {
+      blockFound = true;
+      selectBlock(userData.block)
       break;
     } else if (userData.type === 'columnHandle') {
       foundHandle = { userData, handle: intersect.object, point: intersect.point }
@@ -214,7 +243,7 @@ function onMouseDown(event: MouseEvent) {
   if (foundHandle) {
     const userData = foundHandle.userData
     startColumnDrag(userData.column, foundHandle.handle, userData.direction, foundHandle.point)
-  } else if (!columnFound) {
+  } else if (!columnFound && !blockFound) {
     deselectAll()
   }
 }
@@ -230,19 +259,29 @@ function onMouseMove(event: MouseEvent) {
     const intersects = raycaster.intersectObjects(scene.children, true);
 
     let columnFound = false;
+    let blockFound = false;
 
     if (intersects.length > 0) {
       const userData = intersects[0].object.userData;
       if (userData.type === 'column') {
         columnFound = true;
         const column: Column = userData.column;
-        
         // Don't hover the selected column
         if (column !== state.selectedColumn) {
           renderer.domElement.style.cursor = 'pointer';
           hoverColumn(column)
         } else {
           // Still show pointer cursor for selected column
+          renderer.domElement.style.cursor = 'pointer';
+        }
+      } else if (userData.type == 'block') {
+        blockFound = true;
+        const block: Block = userData.block;
+        // Don't hover the selected block
+        if (!state.selectedBlocks.includes(block)) {
+          renderer.domElement.style.cursor = 'pointer';
+          hoverBlock(block)
+        } else {
           renderer.domElement.style.cursor = 'pointer';
         }
       } else if (userData.type == 'columnHandle') {
@@ -260,6 +299,13 @@ function onMouseMove(event: MouseEvent) {
         state.hoverColumn?.setHover(false);
       }
       state.hoverColumn = null;
+    }
+    if (!blockFound) {
+      // Clear previous hover state
+      if (state.hoverBlock && !state.selectedBlocks.includes(state.hoverBlock)) {
+        state.hoverBlock?.setHover(false);
+      }
+      state.hoverBlock = null;
     }
   }
 
@@ -336,6 +382,17 @@ function handleColumnDrag() {
           targetColumn = new Column(scene, newX, newZ);
           state.columns.push(targetColumn);
           selectColumn(targetColumn)
+        }
+
+        // Add block if it doesn't exist
+        const blockExists = state.blocks.some(b => 
+          (b.fromColumn === lastColumn && b.toColumn === targetColumn) ||
+          (b.fromColumn === targetColumn && b.toColumn === lastColumn)
+        );
+
+        if (!blockExists) {
+          const block = lastColumn.addBlock(targetColumn);
+          state.blocks.push(block)
         }
 
         lastColumn = targetColumn;

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { COLUMN_DEPTH, COLUMN_WIDTH, Position } from './main';
+import { BLOCK_HEIGHT, COLUMN_DEPTH, COLUMN_WIDTH, handleMaterial, Position } from './main';
+import { Block } from './block';
 
 interface Handle {
 	mesh: THREE.Group;
@@ -11,6 +12,7 @@ export class Column {
 	mesh: THREE.Mesh;
 	position: Position;
 	handles: Handle[];
+	blocks: Block[];
 
 	constructor(scene: THREE.Scene, x: number, z: number) {
 		this.scene = scene;
@@ -18,6 +20,13 @@ export class Column {
 		this.mesh= this.createMesh();
 		this.scene.add(this.mesh);
 		this.handles = this.createHandles();
+		this.blocks = [];
+	}
+
+	addBlock(toColumn: Column) {
+		const block = new Block(this.scene, this, toColumn, BLOCK_HEIGHT / 2);
+		this.blocks.push(block);
+		return block;
 	}
 
 	setHover(hovered: boolean) {
@@ -116,8 +125,4 @@ const columnHoverMaterial = new THREE.MeshStandardMaterial({
 	metalness: 0.5,
 	emissive: 0xffd100,
 	emissiveIntensity: 0.3
-});
-
-const handleMaterial = new THREE.MeshBasicMaterial({ 
-	color: 0xff8800,
 });
