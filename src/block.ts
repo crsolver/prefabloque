@@ -9,13 +9,17 @@ export class Block {
 	//index: number;
 	mesh: THREE.Mesh;
 	handle: {mesh: THREE.Group};
-	y: number;
+	position: Position;
 
 	constructor(scene: THREE.Scene, fromColumn: Column, toColumn: Column, y: number) {
 		this.scene = scene;
 		this.fromColumn = fromColumn;
 		this.toColumn = toColumn;
-		this.y = y;
+		this.position = {
+			x: (fromColumn.position.x + toColumn.position.x) / 2,
+			y, 
+			z: (fromColumn.position.z + toColumn.position.z) / 2
+		};
 		this.mesh = this.createMesh();
 		this.handle = this.createHandle();
 		scene.add(this.mesh);
@@ -28,12 +32,8 @@ export class Block {
 	createMesh() {
 		const geometry = new THREE.BoxGeometry(BLOCK_WIDTH, BLOCK_HEIGHT, BLOCK_DEPTH);
 		const mesh = new THREE.Mesh(geometry, blockMaterial);
-		
-		const midX = (this.fromColumn.position.x + this.toColumn.position.x) / 2;
-		const midZ = (this.fromColumn.position.z + this.toColumn.position.z) / 2;
-		//const y = BLOCK_HEIGHT / 2 + this.index * BLOCK_HEIGHT;
 
-		mesh.position.set(midX, this.y, midZ);
+		mesh.position.set(this.position.x, this.position.y, this.position.z);
 
 		// Rotate block to align with columns - swap dx and dz
 		const dx = this.toColumn.position.x - this.fromColumn.position.x;

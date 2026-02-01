@@ -19,6 +19,7 @@ export const BLOCK_WIDTH = 1.41;
 export const BLOCK_HEIGHT = 0.41;
 export const BLOCK_DEPTH = 0.2;
 export const COLUMN_WIDTH = 0.3;
+export const COLUMN_HEIGHT = 3;
 export const COLUMN_DEPTH = 0.3;
 export const MIN_COLUMN_DISTANCE = 1.5;
 export const BLOCK_ADD_THRESHOLD = 0.3;
@@ -42,6 +43,13 @@ interface State {
     startPoint: THREE.Vector3;
     lastColumn: Column;
   } | null,
+  dragBlockHandle: {
+    block: Block;
+    handle: THREE.Object3D;
+    created: number;
+    startPoint: THREE.Vector3;
+    lastBlock: Block;
+  } | null,
   isDragging: boolean,
   dragStart: Position | null,
   currentDirection: Direction | null,
@@ -57,6 +65,7 @@ const state: State = {
   hoverColumn: null,
   hoverBlock: null,
   dragColHandle: null,
+  dragBlockHandle: null,
   isDragging: false,
   dragStart: null,
   currentDirection: null,
@@ -142,7 +151,8 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 //scene.add(floor);
 
-new Column(scene, 0, 0)
+
+new Column(scene, 0, 0);
 
 // Raycaster for picking
 const raycaster = new THREE.Raycaster();
@@ -197,6 +207,19 @@ function hoverBlock(block: Block) {
   block.setHover(true);
 }
 
+function startBlockDrag(block: Block, handle: THREE.Object3D, point: THREE.Vector3) {
+  state.isDragging = true;
+  state.dragBlockHandle = { 
+    block,
+    handle,
+    startPoint: point.clone(),
+    created: 0,
+    lastBlock: block,
+  };
+  state.dragStart = point.clone();
+  controls.enabled = false;
+}
+
 function startColumnDrag(column: Column, handle: THREE.Object3D, direction: Direction, point: THREE.Vector3) {
   state.isDragging = true;
   state.dragColHandle = { 
@@ -209,7 +232,7 @@ function startColumnDrag(column: Column, handle: THREE.Object3D, direction: Dire
   };
   state.dragStart = point.clone();
   state.currentDirection = direction;
-  //controls.enabled = false;
+  controls.enabled = false;
 }
 
 function onMouseDown(event: MouseEvent) {
@@ -223,7 +246,7 @@ function onMouseDown(event: MouseEvent) {
 
   let columnFound = false;
   let blockFound = false;
-  let foundHandle: {userData: Record<string, any>, handle: THREE.Object3D, point: THREE.Vector3} | null = null;
+  let foundHandle: {type: 'col' | 'block', userData: Record<string, any>, handle: THREE.Object3D, point: THREE.Vector3} | null = null;
   
   for (const intersect of intersects) {
     const userData = intersect.object.userData;
@@ -236,13 +259,19 @@ function onMouseDown(event: MouseEvent) {
       selectBlock(userData.block)
       break;
     } else if (userData.type === 'columnHandle') {
-      foundHandle = { userData, handle: intersect.object, point: intersect.point }
+      foundHandle = { type: 'col', userData, handle: intersect.object, point: intersect.point }
+    } else if (userData.type === 'blockHandle') {
+      foundHandle = { type: 'block', userData, handle: intersect.object, point: intersect.point }
     }
   }
   
   if (foundHandle) {
     const userData = foundHandle.userData
-    startColumnDrag(userData.column, foundHandle.handle, userData.direction, foundHandle.point)
+    if (foundHandle.type === 'col') {
+      startColumnDrag(userData.column, foundHandle.handle, userData.direction, foundHandle.point)
+    } else {
+      startBlockDrag(userData.block, foundHandle.handle, foundHandle.point)
+    }
   } else if (!columnFound && !blockFound) {
     deselectAll()
   }
@@ -284,7 +313,7 @@ function onMouseMove(event: MouseEvent) {
         } else {
           renderer.domElement.style.cursor = 'pointer';
         }
-      } else if (userData.type == 'columnHandle') {
+      } else if (userData.type === 'columnHandle' || userData.type === 'blockHandle') {
         renderer.domElement.style.cursor = 'grab';
       } else {
         renderer.domElement.style.cursor = 'crosshair';
@@ -315,16 +344,24 @@ function onMouseMove(event: MouseEvent) {
   if (state.dragColHandle) {
     handleColumnDrag();
   }
+  if (state.dragBlockHandle) {
+    handleBlockDrag();
+  }
 }
 
 function onMouseUp(event: MouseEvent) {
   if (state.isDragging) {
-    state.isDragging = false;
-    state.dragColHandle = null;
-    state.dragStart = null;
-    state.currentDirection = null;
-    controls.enabled = true;
+    stopDragging();
   }
+}
+
+function stopDragging() {
+  state.isDragging = false;
+  state.dragColHandle = null;
+  state.dragBlockHandle = null;
+  state.dragStart = null;
+  state.currentDirection = null;
+  controls.enabled = true;
 }
 
 function handleColumnDrag() {
@@ -357,7 +394,6 @@ function handleColumnDrag() {
     const dragDelta = new THREE.Vector3().subVectors(intersectPoint, state.dragColHandle.startPoint);
     const dragDistance = Math.abs(dragDelta.x * dirX + dragDelta.z * dirZ);
 
-    const handle = state.dragColHandle.handle;
     // Calculate how many columns should exist
     const targetColumns = Math.floor(dragDistance / MIN_COLUMN_DISTANCE);
 
@@ -400,6 +436,73 @@ function handleColumnDrag() {
 
       state.dragColHandle.created = targetColumns;
       state.dragColHandle.lastColumn = lastColumn;
+    }
+  }
+}
+
+function handleBlockDrag() {
+  if (state.dragBlockHandle === null) return;
+  
+  // Use the camera's view direction to create a vertical plane
+  const cameraDirection = new THREE.Vector3();
+  camera.getWorldDirection(cameraDirection);
+  cameraDirection.y = 0; // Project onto horizontal plane
+  cameraDirection.normalize();
+  
+  // Create a vertical plane perpendicular to camera view, passing through start point
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+    cameraDirection,
+    state.dragBlockHandle.startPoint
+  );
+  
+  const intersectPoint = new THREE.Vector3();
+  
+  if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
+    // Now we can use the Y difference directly
+    const dragDistance = intersectPoint.y - state.dragBlockHandle.startPoint.y;
+    
+    // Only count upward dragging
+    if (dragDistance < 0) return;
+
+    // Calculate how many blocks should exist
+    const targetBlocks = Math.floor(dragDistance / BLOCK_HEIGHT);
+
+    // Get current block count in this direction
+    const currentBlocks = state.dragBlockHandle.created || 0;
+    const baseBlock = state.dragBlockHandle.block;
+    
+    // Create additional blocks if needed
+    if (targetBlocks > currentBlocks) {
+      let lastBlock = state.dragBlockHandle.lastBlock || baseBlock;
+      for (let i = currentBlocks; i < targetBlocks; i++) {
+        const newY = baseBlock.position.y + ((i + 1) * BLOCK_HEIGHT);
+        
+        // Don't exceed column height
+        if (newY >= COLUMN_HEIGHT) {
+          deselectAll();
+          stopDragging();
+          return; 
+        }
+
+        // Check if block already exists at this height
+        let targetBlock = state.blocks.find(b => 
+          b.fromColumn === baseBlock.fromColumn &&
+          b.toColumn === baseBlock.toColumn &&
+          Math.abs(b.position.y - newY) < 0.1
+        );
+
+        if (!targetBlock) {
+          // Create new block at the same horizontal position but higher
+          targetBlock = new Block(scene, baseBlock.fromColumn, baseBlock.toColumn, newY);
+          state.blocks.push(targetBlock);
+          selectBlock(targetBlock);
+        }
+
+        lastBlock = targetBlock;
+      }
+
+      state.dragBlockHandle.created = targetBlocks;
+      state.dragBlockHandle.lastBlock = lastBlock;
     }
   }
 }

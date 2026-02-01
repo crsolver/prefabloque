@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BLOCK_HEIGHT, COLUMN_DEPTH, COLUMN_WIDTH, handleMaterial, Position } from './main';
+import { BLOCK_HEIGHT, COLUMN_DEPTH, COLUMN_HEIGHT, COLUMN_WIDTH, handleMaterial, Position } from './main';
 import { Block } from './block';
 
 interface Handle {
@@ -39,7 +39,7 @@ export class Column {
 	}
 
 	createMesh() {
-		const geometry = new THREE.BoxGeometry(COLUMN_WIDTH, 3, COLUMN_DEPTH);
+		const geometry = new THREE.BoxGeometry(COLUMN_WIDTH, COLUMN_HEIGHT, COLUMN_DEPTH);
 		const mesh = new THREE.Mesh(geometry, columnMaterial);
 		mesh.position.set(this.position.x, 1.5, this.position.z);
 		mesh.castShadow = true;
