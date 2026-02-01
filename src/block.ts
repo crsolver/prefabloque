@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Column } from "./column";
-import { BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_WIDTH, handleMaterial, Position } from './main';
+import { BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_WIDTH, handleMaterial, Position, selectedMaterial } from './main';
 
 export class Block {
 	scene: THREE.Scene;
@@ -80,7 +80,7 @@ export class Block {
 	}
 
 	setSelected(selected: boolean) {
-		this.mesh.material = selected ? blockSelectedMaterial : blockMaterial;
+		this.mesh.material = selected ? selectedMaterial : blockMaterial;
 		this.handle.mesh.visible = selected;
 	}
 
@@ -121,14 +121,6 @@ const blockMaterial = new THREE.MeshStandardMaterial({
 	color: 0x737373,
 	roughness: 0.6,
 	metalness: 0.2
-});
-
-const blockSelectedMaterial = new THREE.MeshStandardMaterial({
-	color: 0x00ff88,
-	roughness: 0.4,
-	metalness: 0.4,
-	emissive: 0x00ff88,
-	emissiveIntensity: 0.2
 });
 
 const blockHoverMaterial = new THREE.MeshStandardMaterial({

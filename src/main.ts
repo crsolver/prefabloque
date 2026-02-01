@@ -54,7 +54,8 @@ interface State {
   dragStart: Position | null,
   currentDirection: Direction | null,
   gridVisible: boolean,
-  multiBlockMode: boolean 
+  multiBlockMode: boolean,
+  shiftPressed: boolean, 
 }
 
 const state: State = {
@@ -70,7 +71,8 @@ const state: State = {
   dragStart: null,
   currentDirection: null,
   gridVisible: true,
-  multiBlockMode: false
+  multiBlockMode: false,
+  shiftPressed: false,
 };
 
 // Scene setup ________________________________________________________________
@@ -164,23 +166,48 @@ const mouse = new THREE.Vector2();
 renderer.domElement.addEventListener('mousemove', onMouseMove);
 renderer.domElement.addEventListener('mousedown', onMouseDown);
 renderer.domElement.addEventListener('mouseup', onMouseUp);
+document.addEventListener('keydown', onKeyDown);
+document.addEventListener('keyup', onKeyUp)
 
 
 // ____________________________________________________________________________
+
+function onKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Shift') {
+    state.shiftPressed = true;
+  }
+}
+
+function onKeyUp(event: KeyboardEvent) {
+  if (event.key === 'Shift') {
+    state.shiftPressed = false;
+  }
+};
+
 function removeHoverAll() {
-  state.hoverBlock?.setHover(false);
+  if (state.hoverBlock && !state.selectedBlocks.includes(state.hoverBlock)) {
+    state.hoverBlock.setHover(false);
+  }
   state.hoverColumn?.setHover(false);
   state.hoverColumn = null;
   state.hoverBlock = null;
 }
 
-function deselectAll() {
+function deselectAllColumns() {
   state.selectedColumn?.setSelected(false);
   state.selectedColumn = null;
+}
+
+function deselectAllBlocks() {
   for (let blck of state.selectedBlocks) {
     blck.setSelected(false)
   }
   state.selectedBlocks = []
+}
+
+function deselectAll() {
+  deselectAllColumns();
+  deselectAllBlocks();
 }
 
 function selectColumn(column: Column) {
@@ -190,7 +217,6 @@ function selectColumn(column: Column) {
 }
 
 function selectBlock(block: Block) {
-  deselectAll();
   state.selectedBlocks.push(block);
   block.setSelected(true);
 }
@@ -235,6 +261,18 @@ function startColumnDrag(column: Column, handle: THREE.Object3D, direction: Dire
   controls.enabled = false;
 }
 
+
+function deselectBlock(block: Block) {
+  // Check if the block is in selectedBlocks
+  const index = state.selectedBlocks.indexOf(block);
+  if (index !== -1) {
+    // Remove from selectedBlocks array
+    state.selectedBlocks.splice(index, 1);
+    // Update the block's visual state
+    block.setSelected(false);
+  }
+}
+
 function onMouseDown(event: MouseEvent) {
   if (event.button !== 0) return;
 
@@ -256,7 +294,15 @@ function onMouseDown(event: MouseEvent) {
       break;
     } else if (userData.type === 'block') {
       blockFound = true;
-      selectBlock(userData.block)
+      deselectAllColumns();
+      if (!state.shiftPressed) {
+        deselectAllBlocks();
+      }
+      if (state.selectedBlocks.includes(userData.block)) {
+        deselectBlock(userData.block)
+      } else {
+        selectBlock(userData.block);
+      }
       break;
     } else if (userData.type === 'columnHandle') {
       foundHandle = { type: 'col', userData, handle: intersect.object, point: intersect.point }
@@ -440,6 +486,23 @@ function handleColumnDrag() {
   }
 }
 
+function deselectBlocksBelow(block: Block) {
+  // Find all selected blocks that are below this block and in the same column span
+  const blocksToDeselect = state.selectedBlocks.filter(b =>
+    b.fromColumn === block.fromColumn &&
+    b.toColumn === block.toColumn &&
+    b.position.y < block.position.y
+  );
+  
+  // Deselect them
+  for (const b of blocksToDeselect) {
+    b.setSelected(false);
+  }
+  
+  // Remove them from selectedBlocks array
+  state.selectedBlocks = state.selectedBlocks.filter(b => !blocksToDeselect.includes(b));
+}
+
 function handleBlockDrag() {
   if (state.dragBlockHandle === null) return;
   
@@ -458,34 +521,45 @@ function handleBlockDrag() {
   const intersectPoint = new THREE.Vector3();
   
   if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
-    // Now we can use the Y difference directly
-    const dragDistance = intersectPoint.y - state.dragBlockHandle.startPoint.y;
+    // Calculate the drag distance from the original start point
+    const absoluteDragDistance = intersectPoint.y - state.dragBlockHandle.startPoint.y;
     
     // Only count upward dragging
-    if (dragDistance < 0) return;
+    if (absoluteDragDistance < 0) return;
 
-    // Calculate how many blocks should exist
-    const targetBlocks = Math.floor(dragDistance / BLOCK_HEIGHT);
-
-    // Get current block count in this direction
-    const currentBlocks = state.dragBlockHandle.created || 0;
-    const baseBlock = state.dragBlockHandle.block;
-    
-    // Create additional blocks if needed
-    if (targetBlocks > currentBlocks) {
-      let lastBlock = state.dragBlockHandle.lastBlock || baseBlock;
-      for (let i = currentBlocks; i < targetBlocks; i++) {
+    // Calculate the target Y position where the cursor is pointing
+    const targetY = state.dragBlockHandle.startPoint.y + absoluteDragDistance;
+    const selected = state.selectedBlocks; 
+    // Iterate through all selected blocks
+    for (const baseBlock of selected) {
+      // Calculate how many blocks should exist above this specific block
+      // based on how far the target Y is above this block
+      const heightAboveThisBlock = targetY - baseBlock.position.y;
+      
+      // Skip if target is below this block
+      if (heightAboveThisBlock <= 0) continue;
+      
+      const blocksToCreate = Math.floor(heightAboveThisBlock / BLOCK_HEIGHT);
+      
+      // Find existing blocks above this base block
+      const existingBlocksAbove = state.blocks.filter(b =>
+        b.fromColumn === baseBlock.fromColumn &&
+        b.toColumn === baseBlock.toColumn &&
+        b.position.y > baseBlock.position.y &&
+        b.position.y <= baseBlock.position.y + (blocksToCreate * BLOCK_HEIGHT) + 0.01
+      ).length;
+      
+      // Create missing blocks
+      for (let i = existingBlocksAbove; i < blocksToCreate; i++) {
         const newY = baseBlock.position.y + ((i + 1) * BLOCK_HEIGHT);
         
         // Don't exceed column height
         if (newY >= COLUMN_HEIGHT) {
-          deselectAll();
-          stopDragging();
-          return; 
+          break;
         }
 
         // Check if block already exists at this height
-        let targetBlock = state.blocks.find(b => 
+        const targetBlock = state.blocks.find(b => 
           b.fromColumn === baseBlock.fromColumn &&
           b.toColumn === baseBlock.toColumn &&
           Math.abs(b.position.y - newY) < 0.1
@@ -493,19 +567,19 @@ function handleBlockDrag() {
 
         if (!targetBlock) {
           // Create new block at the same horizontal position but higher
-          targetBlock = new Block(scene, baseBlock.fromColumn, baseBlock.toColumn, newY);
-          state.blocks.push(targetBlock);
-          selectBlock(targetBlock);
+          const newBlock = new Block(scene, baseBlock.fromColumn, baseBlock.toColumn, newY);
+          state.blocks.push(newBlock);
+          deselectAllColumns();
+          selectBlock(newBlock);
+          deselectBlocksBelow(newBlock);
         }
-
-        lastBlock = targetBlock;
       }
-
-      state.dragBlockHandle.created = targetBlocks;
-      state.dragBlockHandle.lastBlock = lastBlock;
     }
+
+    state.dragBlockHandle.created = Math.floor(absoluteDragDistance / BLOCK_HEIGHT);
   }
 }
+
 
 // ____________________________________________________________________________
 
@@ -584,3 +658,11 @@ function createFadingGrid(cellSize: number, divisions: number, color: number) {
   
   return mesh;
 }
+
+export const selectedMaterial = new THREE.MeshStandardMaterial({
+	color: 0x00d9ff,
+	roughness: 0.5,
+	metalness: 0.5,
+	emissive: 0x00d9ff,
+	emissiveIntensity: 0.2
+});
