@@ -25,7 +25,6 @@ export class Column {
 
 	addBlock(toColumn: Column) {
 		const block = new Block(this.scene, this, toColumn, BLOCK_HEIGHT / 2);
-		this.blocks.push(block);
 		return block;
 	}
 

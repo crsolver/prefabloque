@@ -176,6 +176,22 @@ function onKeyDown(event: KeyboardEvent) {
   if (event.key === 'Shift') {
     state.shiftPressed = true;
   }
+
+  if (event.key === 'a') {
+    // 1. Create a snapshot/copy of the currently selected blocks 
+    // or collect the new ones in a separate list.
+    const blocksToSelect = new Set<Block>();
+
+    for (let selected of state.selectedBlocks) {
+        const connected = selected.getConnectedBlocks();
+        for (let block of connected) {
+            blocksToSelect.add(block);
+        }
+    }
+
+    // 2. Now apply the selection after the search is done
+    blocksToSelect.forEach(block => selectBlock(block));
+  }
 }
 
 function onKeyUp(event: KeyboardEvent) {

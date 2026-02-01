@@ -3,6 +3,7 @@ import { Column } from "./column";
 import { BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_WIDTH, handleMaterial, Position, selectedMaterial } from './main';
 
 export class Block {
+	id: string;
 	scene: THREE.Scene;
 	fromColumn: Column;
 	toColumn: Column;
@@ -12,6 +13,9 @@ export class Block {
 	position: Position;
 
 	constructor(scene: THREE.Scene, fromColumn: Column, toColumn: Column, y: number) {
+		this.id = Math.random().toString(36).substring(2, 15);
+		fromColumn.blocks.push(this);
+		toColumn.blocks.push(this);
 		this.scene = scene;
 		this.fromColumn = fromColumn;
 		this.toColumn = toColumn;
@@ -89,31 +93,89 @@ export class Block {
 		this.scene.remove(this.handle.mesh);
 	}
 
-	getConnectedBlocks() {
-		const connected = new Set();
-		const visited = new Set();
+	getConnectedBlocks(): Block[] {
+		const connected: Block[] = [];
+		const visited = new Set<string>();
 		const queue: Block[] = [this];
 
-		while (queue.length > 0) {
-			const block = queue.shift();
-			if (block === undefined) continue;
-			if (visited.has(block)) continue;
-			visited.add(block);
-			connected.add(block);
+		visited.add(this.id);
 
-			// Find all blocks sharing columns with this block
-			const columns = [block.fromColumn, block.toColumn];
+		// Reference values from the starting block
+		const refRot = this.mesh.rotation.y;
+		const refPos = this.position;
+
+		// Determine the "depth" axis based on rotation.
+		// If the wall is horizontal (0 or PI), depth is Z. 
+		// If the wall is vertical (PI/2), depth is X.
+		// We use a small epsilon for float comparisons.
+		const isNorthSouth = Math.abs(Math.sin(refRot)) > 0.5; 
+
+		while (queue.length > 0) {
+			const block = queue.shift()!;
+
+			// 1. Check Height (Y-axis)
+			const sameHeight = Math.abs(block.position.y - refPos.y) < 0.01;
 			
-			columns.forEach(column => {
-				column.blocks.forEach(b => {
-					if (!visited.has(b)) {
+			// 2. Check Rotation (Parallel)
+			const sameRotation = Math.abs(block.mesh.rotation.y - refRot) < 0.01;
+
+			// 3. Check Planar Alignment (The "relevant axis")
+			// If the wall points North/South (Z-aligned), X must be constant.
+			// If the wall points East/West (X-aligned), Z must be constant.
+			const samePlane = isNorthSouth 
+				? Math.abs(block.position.x - refPos.x) < 0.01
+				: Math.abs(block.position.z - refPos.z) < 0.01;
+
+			if (sameHeight && sameRotation && samePlane) {
+				connected.push(block);
+			}
+
+			// Traversal logic
+			[block.fromColumn, block.toColumn].forEach(column => {
+				if (!column) return;
+				for (const b of column.blocks) {
+					if (!visited.has(b.id)) {
+						visited.add(b.id);
 						queue.push(b);
 					}
-				});
+				}
 			});
 		}
 
-		return Array.from(connected);
+		return connected;
+	}
+
+
+	getConnectedBlocks2(): Block[] {
+		const connected: Block[] = [];
+		const visited = new Set<string>(); // Store block IDs here
+		const queue: Block[] = [this];
+
+		// Mark start as visited using its ID
+		visited.add(this.id); 
+
+		while (queue.length > 0) {
+			const block = queue.shift()!;
+			if (block.position.y === this.position.y && 
+				block.mesh.rotation.equals(this.mesh.rotation)
+			) {
+				connected.push(block);
+			}
+
+			// Check both from and to columns
+			[block.fromColumn, block.toColumn].forEach(column => {
+				if (!column) return;
+
+				for (const b of column.blocks) {
+					if (!visited.has(b.id)) {
+						visited.add(b.id);
+						queue.push(b);
+					}
+				}
+			});
+		}
+
+		return connected;
 	}
 }
 
