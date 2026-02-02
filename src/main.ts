@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Column } from './column';
-import { userData } from 'three/tsl';
+import { min, userData } from 'three/tsl';
 import { Block } from './block';
 
 export interface Position {
@@ -11,7 +11,7 @@ export interface Position {
 }
 
 export const handleMaterial = new THREE.MeshBasicMaterial({ 
-	color: 0xff8800,
+	color: 0x2DABFF,
 });
 
 // Constants
@@ -75,10 +75,80 @@ const state: State = {
   shiftPressed: false,
 };
 
+// UI _________________________________________________________________________
+const formatMoney = (amount: number): string => {
+  return new Intl.NumberFormat('es-CR', {
+  style: 'currency',
+  currency: 'CRC'
+  }).format(amount);
+}
+
+function minutosATexto(minutos: number): string {
+  const minutosPorHora = 60;
+  const minutosPorDia = 1440; // 24 * 60
+  const minutosPorMes = 43200; // 30 * 24 * 60 (aproximado)
+  
+  const meses = Math.floor(minutos / minutosPorMes);
+  minutos %= minutosPorMes;
+  
+  const dias = Math.floor(minutos / minutosPorDia);
+  minutos %= minutosPorDia;
+  
+  const horas = Math.floor(minutos / minutosPorHora);
+  minutos %= minutosPorHora;
+  
+  const partes = [];
+  if (meses > 0) partes.push(`${meses} ${meses === 1 ? 'M' : 'M'}`);
+  if (dias > 0) partes.push(`${dias} ${dias === 1 ? 'd' : 'd'}`);
+  if (horas > 0) partes.push(`${horas} ${horas === 1 ? 'h' : 'h'}`);
+  if (minutos > 0) partes.push(`${minutos} ${minutos === 1 ? 'm' : 'm'}`);
+  
+  return partes.join(', ').replace(/, ([^,]*)$/, ' y $1');
+}
+
+const seleccionadosLabel = document.getElementById("seleccionados")! as HTMLParagraphElement;
+const columnasLabel = document.getElementById("columnas")! as HTMLParagraphElement;
+const bloquesLabel = document.getElementById("bloques")! as HTMLParagraphElement;
+const tiempoLabel = document.getElementById("tiempo")! as HTMLParagraphElement;
+const materialesLabel = document.getElementById("materiales")! as HTMLParagraphElement;
+const obraLabel = document.getElementById("obra")! as HTMLParagraphElement;
+
+const seleccionadosLabelSpan = document.getElementById("seleccionados-span")! as HTMLSpanElement;
+const columnasLabelSpan = document.getElementById("columnas-span")! as HTMLSpanElement;
+const bloquesLabelSpan = document.getElementById("bloques-span")! as HTMLSpanElement;
+const tiempoLabelSpan = document.getElementById("tiempo-span")! as HTMLSpanElement;
+const materialesLabelSpan = document.getElementById("materiales-span")! as HTMLSpanElement;
+const obraLabelSpan = document.getElementById("obra-span")! as HTMLSpanElement;
+const totalSpan = document.getElementById("total-span")! as HTMLSpanElement;
+
+const columnPriceInput = document.getElementById('columnPrice') as HTMLInputElement;
+const blockPriceInput = document.getElementById('blockPrice') as HTMLInputElement;
+const blockPlacingTimeInput = document.getElementById('blockPlacingTime') as HTMLInputElement;
+const columnPlacingTimeInput = document.getElementById('columnPlacingTime') as HTMLInputElement;
+const hourRateInput = document.getElementById('workCostPerHour') as HTMLInputElement;
+
+let columnCost = 10000;
+let blockCost = 800;
+let colTime = 40;
+let blockTime = 3;
+let hourRate = 2000;
+
+const recalculate = () => {
+  const columns =  state.columns.length
+  const blocks =  state.blocks.length
+  const materialesCost = ((columnCost * columns) + (blockCost * blocks))
+  materialesLabelSpan.textContent = formatMoney(materialesCost);
+  const minutes = (colTime * columns) + (blockTime * blocks)
+  tiempoLabelSpan.textContent = minutosATexto(minutes)
+  const obraCost = (minutes/60) * hourRate;
+  obraLabelSpan.textContent = formatMoney(obraCost)
+  totalSpan.textContent = formatMoney(materialesCost + obraCost)
+}
+
 // Scene setup ________________________________________________________________
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x141414);
-scene.fog = new THREE.Fog(0x0a0e17, 30, 50);
+//scene.fog = new THREE.Fog(0x0a0e17, 30, 50);
 
 const camera = new THREE.PerspectiveCamera(
   60,
@@ -110,7 +180,7 @@ controls.mouseButtons = {
 
 // Lighting ___________________________________________________________________
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
 scene.add(ambientLight);
 
 const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -137,15 +207,13 @@ scene.add(accentLight);
 
 // Grid floor _________________________________________________________________
 
-const grid = createFadingGrid(BLOCK_WIDTH, 60, 0x7d7d7d)
+const grid = createFadingGrid(BLOCK_WIDTH, 60, 0x6b6b6b)
 scene.add(grid);
 
 // Create floor plane
-const floorGeometry = new THREE.PlaneGeometry(2, 2);
+const floorGeometry = new THREE.PlaneGeometry(60, 60);
 const floorMaterial = new THREE.MeshStandardMaterial({
-  color: 0x0f1419,
-  roughness: 0.9,
-  metalness: 0.1
+  color: 0x141414,
 });
 
 const floor = new THREE.Mesh(floorGeometry, floorMaterial);
@@ -154,8 +222,8 @@ floor.receiveShadow = true;
 //scene.add(floor);
 
 
-new Column(scene, 0, 0);
-
+state.columns.push(new Column(scene, 0, 0));
+recalculate()
 // Raycaster for picking
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -302,12 +370,16 @@ function onMouseDown(event: MouseEvent) {
   let blockFound = false;
   let foundHandle: {type: 'col' | 'block', userData: Record<string, any>, handle: THREE.Object3D, point: THREE.Vector3} | null = null;
   
-  for (const intersect of intersects) {
+  if (intersects.length > 0) {
+    const intersect = intersects[0];
     const userData = intersect.object.userData;
-    if (userData.type === 'column') {
+    if (userData.type === 'columnHandle') {
+      foundHandle = { type: 'col', userData, handle: intersect.object, point: intersect.point }
+    } else if (userData.type === 'blockHandle') {
+      foundHandle = { type: 'block', userData, handle: intersect.object, point: intersect.point }
+    } else if (userData.type === 'column') {
       columnFound = true;
       selectColumn(userData.column)
-      break;
     } else if (userData.type === 'block') {
       blockFound = true;
       deselectAllColumns();
@@ -319,11 +391,6 @@ function onMouseDown(event: MouseEvent) {
       } else {
         selectBlock(userData.block);
       }
-      break;
-    } else if (userData.type === 'columnHandle') {
-      foundHandle = { type: 'col', userData, handle: intersect.object, point: intersect.point }
-    } else if (userData.type === 'blockHandle') {
-      foundHandle = { type: 'block', userData, handle: intersect.object, point: intersect.point }
     }
   }
   
@@ -479,6 +546,8 @@ function handleColumnDrag() {
         if (!targetColumn) {
           targetColumn = new Column(scene, newX, newZ);
           state.columns.push(targetColumn);
+          columnasLabelSpan.textContent = state.columns.length.toString()
+          recalculate()
           selectColumn(targetColumn)
         }
 
@@ -490,7 +559,9 @@ function handleColumnDrag() {
 
         if (!blockExists) {
           const block = lastColumn.addBlock(targetColumn);
-          state.blocks.push(block)
+          state.blocks.push(block);
+          bloquesLabelSpan.textContent = state.blocks.length.toString();
+          recalculate();
         }
 
         lastColumn = targetColumn;
@@ -585,6 +656,8 @@ function handleBlockDrag() {
           // Create new block at the same horizontal position but higher
           const newBlock = new Block(scene, baseBlock.fromColumn, baseBlock.toColumn, newY);
           state.blocks.push(newBlock);
+          bloquesLabelSpan.textContent = state.blocks.length.toString()
+          recalculate()
           deselectAllColumns();
           selectBlock(newBlock);
           deselectBlocksBelow(newBlock);
@@ -676,9 +749,71 @@ function createFadingGrid(cellSize: number, divisions: number, color: number) {
 }
 
 export const selectedMaterial = new THREE.MeshStandardMaterial({
-	color: 0x00d9ff,
+	color: 0xff812d,
 	roughness: 0.5,
 	metalness: 0.5,
-	emissive: 0x00d9ff,
-	emissiveIntensity: 0.2
+	emissive: 0xff812d,
+	emissiveIntensity: 0.5
+});
+
+export const hoverMaterial = new THREE.MeshStandardMaterial({
+	color: 0x96603c,
+	roughness: 0.5,
+	metalness: 0.5,
+	emissive: 0x96603c,
+	emissiveIntensity: 0.5
+});
+
+// Modal ______________________________________________________________________
+// Modal functionality
+const modal: HTMLElement | null = document.getElementById('settingsModal');
+const openBtn: HTMLElement | null = document.getElementById('openSettingsBtn');
+const closeBtn: HTMLElement | null = document.getElementById('closeModalBtn');
+const cancelBtn: HTMLElement | null = document.getElementById('cancelBtn');
+const form: HTMLElement | null = document.getElementById('settingsForm');
+
+openBtn?.addEventListener('click', () => {
+  modal?.classList.add('active');
+  columnPriceInput.value = columnCost.toString()
+  blockPriceInput.value = blockCost.toString()
+  blockPlacingTimeInput.value = blockTime.toString()
+  columnPlacingTimeInput.value = colTime.toString()
+  hourRateInput.value = hourRate.toString()
+});
+
+closeBtn?.addEventListener('click', () => {
+  modal?.classList.remove('active');
+});
+
+cancelBtn?.addEventListener('click', () => {
+  modal?.classList.remove('active');
+});
+
+// Close modal when clicking outside
+modal?.addEventListener('click', (e) => {
+  if (e.target === modal) {
+    modal.classList.remove('active');
+  }
+});
+
+// Handle form submission
+interface FormData {
+  columnPrice: number;
+  blockPrice: number;
+  blockPlacingTime: number;
+  columnPlacingTime: number;
+  workCostPerHour: number;
+}
+
+form?.addEventListener('submit', (e: Event) => {
+  e.preventDefault();
+
+  columnCost = parseFloat(columnPriceInput.value),
+  blockCost = parseFloat(blockPriceInput.value),
+  blockTime = parseFloat(blockPlacingTimeInput.value),
+  colTime = parseFloat(columnPlacingTimeInput.value),
+  hourRate = parseFloat(hourRateInput.value)
+  recalculate();
+
+  modal?.classList.remove('active');
 });

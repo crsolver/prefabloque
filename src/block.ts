@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Column } from "./column";
-import { BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_WIDTH, handleMaterial, Position, selectedMaterial } from './main';
+import { BLOCK_DEPTH, BLOCK_HEIGHT, BLOCK_WIDTH, handleMaterial, hoverMaterial, Position, selectedMaterial } from './main';
 
 export class Block {
 	id: string;
@@ -30,7 +30,7 @@ export class Block {
 	}
 
 	setHover(hovered: boolean) {
-		this.mesh.material = hovered ? blockHoverMaterial : blockMaterial;
+		this.mesh.material = hovered ? hoverMaterial : blockMaterial;
 	}
 
 	createMesh() {
@@ -145,7 +145,6 @@ export class Block {
 		return connected;
 	}
 
-
 	getConnectedBlocks2(): Block[] {
 		const connected: Block[] = [];
 		const visited = new Set<string>(); // Store block IDs here
@@ -184,12 +183,3 @@ const blockMaterial = new THREE.MeshStandardMaterial({
 	roughness: 0.6,
 	metalness: 0.2
 });
-
-const blockHoverMaterial = new THREE.MeshStandardMaterial({
-	color: 0xffd100,
-	roughness: 0.5,
-	metalness: 0.5,
-	emissive: 0xffd100,
-	emissiveIntensity: 0.3
-});
-

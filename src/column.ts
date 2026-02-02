@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BLOCK_HEIGHT, COLUMN_DEPTH, COLUMN_HEIGHT, COLUMN_WIDTH, handleMaterial, Position, selectedMaterial } from './main';
+import { BLOCK_HEIGHT, COLUMN_DEPTH, COLUMN_HEIGHT, COLUMN_WIDTH, handleMaterial, hoverMaterial, Position, selectedMaterial } from './main';
 import { Block } from './block';
 
 interface Handle {
@@ -29,7 +29,7 @@ export class Column {
 	}
 
 	setHover(hovered: boolean) {
-		this.mesh.material = hovered ? columnHoverMaterial : columnMaterial;
+		this.mesh.material = hovered ? hoverMaterial : columnMaterial;
 	}
 
 	setSelected(selected: boolean) {
@@ -108,12 +108,4 @@ const columnMaterial = new THREE.MeshStandardMaterial({
 	color: 0x636363,
 	roughness: 0.7,
 	metalness: 0.3
-});
-
-const columnHoverMaterial = new THREE.MeshStandardMaterial({
-	color: 0xffd100,
-	roughness: 0.5,
-	metalness: 0.5,
-	emissive: 0xffd100,
-	emissiveIntensity: 0.3
 });
