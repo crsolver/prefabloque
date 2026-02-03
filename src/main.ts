@@ -1,8 +1,99 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Column } from './column';
-import { min, userData } from 'three/tsl';
 import { Block } from './block';
+
+// Constants
+export let BLOCK_WIDTH = 1.41;
+export let BLOCK_HEIGHT = 0.41;
+export let BLOCK_DEPTH = 0.2;
+export let COLUMN_WIDTH = 0.3;
+export let COLUMN_HEIGHT = 3;
+export let COLUMN_DEPTH = 0.3;
+export let MIN_COLUMN_DISTANCE = 1.5;
+export let BLOCK_ADD_THRESHOLD = 0.3;
+
+// Required configuration parameters
+const REQUIRED_PARAMS: (keyof SceneConfig)[] = ['alturaBlock', 'largoBlock', 'anchoBlock', 'alturaCol', 'anchoCol'];
+
+
+
+// Configuration type
+interface SceneConfig {
+  alturaBlock: number;
+  largoBlock: number;
+  anchoBlock: number;
+  alturaCol: number;
+  anchoCol: number;
+}
+
+// Parse URL parameters
+function getUrlParams(): Partial<Record<string, string>> {
+  const params = new URLSearchParams(window.location.search);
+  const config: Record<string, string> = {};
+  
+  params.forEach((value, key) => {
+    config[key] = value;
+  });
+  
+  return config;
+}
+
+// Check if all required params are present
+function hasAllRequiredParams(config: Partial<Record<string, string>>): boolean {
+  return REQUIRED_PARAMS.every(param => 
+    config.hasOwnProperty(param) && config[param] !== undefined && config[param] !== ''
+  );
+}
+
+// Get configuration from URL
+function getConfiguration(): SceneConfig | null {
+  const urlParams = getUrlParams();
+    // Check if all required params are present
+  if (hasAllRequiredParams(urlParams)) {
+    return {
+      alturaBlock: parseFloat(urlParams.alturaBlock!),
+      largoBlock: parseFloat(urlParams.largoBlock!),
+      anchoBlock: parseFloat(urlParams.anchoBlock!),
+      anchoCol: parseFloat(urlParams.anchoCol!),
+      alturaCol: parseFloat(urlParams.alturaCol!),
+    };
+  }
+    
+  // Not all params present, return null to show form
+  return null;
+}
+
+document.getElementById('config-form')?.addEventListener('submit', (e: Event) => {
+  e.preventDefault();
+  
+  const formData = new FormData(e.target as HTMLFormElement);
+  
+  const config: SceneConfig = {
+      alturaBlock: parseFloat(formData.get('alturaBlock') as string),
+      largoBlock: parseFloat(formData.get('largoBlock') as string),
+      anchoBlock: parseFloat(formData.get('anchoBlock') as string),
+      alturaCol: parseFloat(formData.get('alturaCol') as string),
+      anchoCol: parseFloat(formData.get('anchoCol') as string)
+  };
+  
+  // Update URL with parameters
+  const params = new URLSearchParams({
+      alturaBlock: config.alturaBlock.toString(),
+      largoBlock: config.largoBlock.toString(),
+      anchoBlock: config.anchoBlock.toString(),
+      alturaCol: config.alturaCol.toString(),
+      anchoCol: config.anchoCol.toString()
+  });
+  
+  // Update URL without reloading page
+  const newUrl = `${window.location.pathname}?${params.toString()}`;
+  window.history.pushState({}, '', newUrl);
+  
+  // Initialize scene
+  initScene();
+});
+
 
 export interface Position {
   x: number,
@@ -13,16 +104,6 @@ export interface Position {
 export const handleMaterial = new THREE.MeshBasicMaterial({ 
 	color: 0x2DABFF,
 });
-
-// Constants
-export const BLOCK_WIDTH = 1.41;
-export const BLOCK_HEIGHT = 0.41;
-export const BLOCK_DEPTH = 0.2;
-export const COLUMN_WIDTH = 0.3;
-export const COLUMN_HEIGHT = 3;
-export const COLUMN_DEPTH = 0.3;
-export const MIN_COLUMN_DISTANCE = 1.5;
-export const BLOCK_ADD_THRESHOLD = 0.3;
 
 type Direction = 'north' | 'south' | 'east' | 'west'
 
@@ -145,97 +226,110 @@ const recalculate = () => {
   totalSpan.textContent = formatMoney(materialesCost + obraCost)
 }
 
+let controls: OrbitControls;
+let raycaster = new THREE.Raycaster();
+let mouse = new THREE.Vector2();
+let scene: THREE.Scene;
+let camera: THREE.PerspectiveCamera;
+let canvas: HTMLCanvasElement;
+let renderer: THREE.WebGLRenderer;
+
 // Scene setup ________________________________________________________________
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x141414);
-//scene.fog = new THREE.Fog(0x0a0e17, 30, 50);
+function initScene() {
+  document.getElementById('sceneSettingsModal')!.style.display = 'none';
 
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-camera.position.set(4, 4, 4);
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x141414);
+  //scene.fog = new THREE.Fog(0x0a0e17, 30, 50);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.setSize(window.innerWidth, window.innerHeight);
-const canvas = renderer.domElement
-document.body.appendChild(canvas);
+  camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+  camera.position.set(4, 4, 4);
 
-
-// Controls ___________________________________________________________________
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.mouseButtons = {
-  RIGHT: THREE.MOUSE.ROTATE,
-  MIDDLE: THREE.MOUSE.DOLLY,
-  LEFT: null
-};
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  canvas = renderer.domElement
+  document.body.appendChild(canvas);
 
 
-// Lighting ___________________________________________________________________
+  // Controls ___________________________________________________________________
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-scene.add(ambientLight);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.mouseButtons = {
+    RIGHT: THREE.MOUSE.ROTATE,
+    MIDDLE: THREE.MOUSE.DOLLY,
+    LEFT: null
+  };
 
-const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
-mainLight.position.set(5, 10, 5);
-mainLight.castShadow = true;
-mainLight.shadow.camera.near = 0.1;
-mainLight.shadow.camera.far = 50;
-mainLight.shadow.camera.left = -20;
-mainLight.shadow.camera.right = 20;
-mainLight.shadow.camera.top = 20;
-mainLight.shadow.camera.bottom = -20;
-mainLight.shadow.mapSize.width = 2048;
-mainLight.shadow.mapSize.height = 2048;
-scene.add(mainLight);
+  // Lighting ___________________________________________________________________
 
-const fillLight = new THREE.DirectionalLight(0x00d9ff, 0.3);
-fillLight.position.set(-5, 5, -5);
-scene.add(fillLight);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+  scene.add(ambientLight);
 
-const accentLight = new THREE.PointLight(0x00ff88, 0.5, 20);
-accentLight.position.set(0, 3, 0);
-scene.add(accentLight);
+  const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  mainLight.position.set(5, 10, 5);
+  mainLight.castShadow = true;
+  mainLight.shadow.camera.near = 0.1;
+  mainLight.shadow.camera.far = 50;
+  mainLight.shadow.camera.left = -20;
+  mainLight.shadow.camera.right = 20;
+  mainLight.shadow.camera.top = 20;
+  mainLight.shadow.camera.bottom = -20;
+  mainLight.shadow.mapSize.width = 2048;
+  mainLight.shadow.mapSize.height = 2048;
+  scene.add(mainLight);
 
+  const fillLight = new THREE.DirectionalLight(0x00d9ff, 0.3);
+  fillLight.position.set(-5, 5, -5);
+  scene.add(fillLight);
 
-// Grid floor _________________________________________________________________
+  const accentLight = new THREE.PointLight(0x00ff88, 0.5, 20);
+  accentLight.position.set(0, 3, 0);
+  scene.add(accentLight);
 
-const grid = createFadingGrid(BLOCK_WIDTH, 60, 0x6b6b6b)
-scene.add(grid);
+  // Grid floor _________________________________________________________________
 
-// Create floor plane
-const floorGeometry = new THREE.PlaneGeometry(60, 60);
-const floorMaterial = new THREE.MeshStandardMaterial({
-  color: 0x141414,
-});
+  const grid = createFadingGrid(BLOCK_WIDTH, 60, 0x6b6b6b)
+  scene.add(grid);
 
-const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-//scene.add(floor);
+  // Create floor plane
+  const floorGeometry = new THREE.PlaneGeometry(60, 60);
+  const floorMaterial = new THREE.MeshStandardMaterial({
+    color: 0x141414,
+  });
 
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  //scene.add(floor);
 
-state.columns.push(new Column(scene, 0, 0));
-recalculate()
-// Raycaster for picking
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
+  state.columns.push(new Column(scene, 0, 0));
+  recalculate()
+  // Raycaster for picking
+  // Event Listeners ____________________________________________________________
 
+  renderer.domElement.addEventListener('mousemove', onMouseMove);
+  renderer.domElement.addEventListener('mousedown', onMouseDown);
+  renderer.domElement.addEventListener('mouseup', onMouseUp);
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp)
 
-// Event Listeners ____________________________________________________________
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
 
-renderer.domElement.addEventListener('mousemove', onMouseMove);
-renderer.domElement.addEventListener('mousedown', onMouseDown);
-renderer.domElement.addEventListener('mouseup', onMouseUp);
-document.addEventListener('keydown', onKeyDown);
-document.addEventListener('keyup', onKeyUp)
+  animate()
+}
 
 
 // ____________________________________________________________________________
@@ -672,11 +766,6 @@ function handleBlockDrag() {
 
 // ____________________________________________________________________________
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
 
 function animate() {
   requestAnimationFrame(animate);
@@ -684,7 +773,6 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-animate()
 
 // ____________________________________________________________________________
 // Create a custom grid with fading
@@ -817,3 +905,16 @@ form?.addEventListener('submit', (e: Event) => {
 
   modal?.classList.remove('active');
 });
+
+// Auto-start if all required URL params are present
+const config = getConfiguration();
+if (config) {
+  console.log(config)
+  BLOCK_WIDTH = config.largoBlock;
+  BLOCK_HEIGHT = config.alturaBlock;
+  BLOCK_DEPTH = config.anchoBlock;
+  COLUMN_DEPTH = config.anchoCol;
+  COLUMN_WIDTH = config.anchoCol;
+  COLUMN_HEIGHT = config.alturaCol;
+  initScene();
+}
