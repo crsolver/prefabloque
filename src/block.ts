@@ -89,6 +89,8 @@ export class Block {
 	}
 
 	destroy() {
+		this.toColumn.blocks = this.toColumn.blocks.filter((b) =>  b !== this);
+		this.fromColumn.blocks = this.fromColumn.blocks.filter((b) =>  b !== this);
 		this.scene.remove(this.mesh);
 		this.scene.remove(this.handle.mesh);
 	}

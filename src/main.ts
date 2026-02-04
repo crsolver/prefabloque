@@ -17,7 +17,6 @@ export let BLOCK_ADD_THRESHOLD = 0.3;
 const REQUIRED_PARAMS: (keyof SceneConfig)[] = ['alturaBlock', 'largoBlock', 'anchoBlock', 'alturaCol', 'anchoCol'];
 
 
-
 // Configuration type
 interface SceneConfig {
   alturaBlock: number;
@@ -164,25 +163,28 @@ const formatMoney = (amount: number): string => {
   }).format(amount);
 }
 
-function minutosATexto(minutos: number): string {
+function horasATexto(horas: number): string {
   const minutosPorHora = 60;
-  const minutosPorDia = 1440; // 24 * 60
-  const minutosPorMes = 43200; // 30 * 24 * 60 (aproximado)
+  const horasPorDia = 24;
+  const horasPorMes = 720; // 30 * 24 (aproximado)
   
-  const meses = Math.floor(minutos / minutosPorMes);
-  minutos %= minutosPorMes;
+  // Convertir horas a minutos totales y redondear
+  let minutosRestantes = Math.round(horas * minutosPorHora);
   
-  const dias = Math.floor(minutos / minutosPorDia);
-  minutos %= minutosPorDia;
+  const meses = Math.floor(minutosRestantes / (horasPorMes * minutosPorHora));
+  minutosRestantes %= (horasPorMes * minutosPorHora);
   
-  const horas = Math.floor(minutos / minutosPorHora);
-  minutos %= minutosPorHora;
+  const dias = Math.floor(minutosRestantes / (horasPorDia * minutosPorHora));
+  minutosRestantes %= (horasPorDia * minutosPorHora);
+  
+  const horasFinales = Math.floor(minutosRestantes / minutosPorHora);
+  const minutos = minutosRestantes % minutosPorHora;
   
   const partes = [];
-  if (meses > 0) partes.push(`${meses} ${meses === 1 ? 'M' : 'M'}`);
-  if (dias > 0) partes.push(`${dias} ${dias === 1 ? 'd' : 'd'}`);
-  if (horas > 0) partes.push(`${horas} ${horas === 1 ? 'h' : 'h'}`);
-  if (minutos > 0) partes.push(`${minutos} ${minutos === 1 ? 'm' : 'm'}`);
+  if (meses > 0) partes.push(`${meses} M`);
+  if (dias > 0) partes.push(`${dias} d`);
+  if (horasFinales > 0) partes.push(`${horasFinales} h`);
+  if (minutos > 0) partes.push(`${minutos} m`);
   
   return partes.join(', ').replace(/, ([^,]*)$/, ' y $1');
 }
@@ -198,30 +200,82 @@ const seleccionadosLabelSpan = document.getElementById("seleccionados-span")! as
 const columnasLabelSpan = document.getElementById("columnas-span")! as HTMLSpanElement;
 const bloquesLabelSpan = document.getElementById("bloques-span")! as HTMLSpanElement;
 const tiempoLabelSpan = document.getElementById("tiempo-span")! as HTMLSpanElement;
+const tiempo2LabelSpan = document.getElementById("tiempo2-span")! as HTMLSpanElement;
 const materialesLabelSpan = document.getElementById("materiales-span")! as HTMLSpanElement;
 const obraLabelSpan = document.getElementById("obra-span")! as HTMLSpanElement;
 const totalSpan = document.getElementById("total-span")! as HTMLSpanElement;
 
 const columnPriceInput = document.getElementById('columnPrice') as HTMLInputElement;
 const blockPriceInput = document.getElementById('blockPrice') as HTMLInputElement;
-const blockPlacingTimeInput = document.getElementById('blockPlacingTime') as HTMLInputElement;
-const columnPlacingTimeInput = document.getElementById('columnPlacingTime') as HTMLInputElement;
+const blockRateInput = document.getElementById('rblock') as HTMLInputElement;
+const columnRateInput = document.getElementById('rcolumn') as HTMLInputElement;
 const hourRateInput = document.getElementById('workCostPerHour') as HTMLInputElement;
+const hDayInput = document.getElementById('hDay') as HTMLInputElement;
+const dWeekInput = document.getElementById('dWeek') as HTMLInputElement;
 
 let columnCost = 10000;
-let blockCost = 800;
-let colTime = 40;
-let blockTime = 3;
-let hourRate = 2000;
+let blockCost = 2000;
+let colRate = 1;
+let blockRate = 4;
+let hourCost = 4000;
+let hDay = 8;
+let dWeek = 6;
+
+function formatConstructionTime(totalHours:number) {
+  if (totalHours === 0) return "0 days, 0 hours";
+
+  // Calculate full days
+  const fullDays = Math.floor(totalHours / hDay);
+  
+  // Calculate remaining hours (using modulo)
+  const remainingHours = totalHours % hDay;
+
+  // Formatting for the UI
+  let result = "";
+  if (fullDays > 0) {
+    result += `${fullDays} d`;
+  }
+  if (remainingHours > 0) {
+    result += `${fullDays > 0 ? ', ' : ''}${Math.round(remainingHours)} h`;
+  }
+
+  return result;
+}
+
+function formatTimeMinimal(totalHours: number) {
+  if (totalHours <= 0) return "0h";
+
+  const totalDays = totalHours / hDay;
+  const daysInMonth = dWeek * 4; // 4 work weeks
+
+  const mo = Math.floor(totalDays / daysInMonth);
+  const w  = Math.floor((totalDays % daysInMonth) / dWeek);
+  const d  = Math.floor(totalDays % dWeek);
+  const h  = Math.round((totalHours % hDay) * 10) / 10;
+
+  let res = [];
+  if (mo > 0) res.push(`${mo} mes`);
+  if (w > 0)  res.push(`${w} sem.`);
+  if (d > 0)  res.push(`${d}d`);
+  if (h > 0 || res.length === 0) res.push(`${h}h`);
+
+  return res.join(' ');
+}
 
 const recalculate = () => {
   const columns =  state.columns.length
-  const blocks =  state.blocks.length
+  const blocks = state.blocks.length
+  columnasLabelSpan.textContent = columns.toString()
+  bloquesLabelSpan.textContent = blocks.toString()
+
   const materialesCost = ((columnCost * columns) + (blockCost * blocks))
   materialesLabelSpan.textContent = formatMoney(materialesCost);
-  const minutes = (colTime * columns) + (blockTime * blocks)
-  tiempoLabelSpan.textContent = minutosATexto(minutes)
-  const obraCost = (minutes/60) * hourRate;
+
+  const time = (columns / colRate) + (blocks / blockRate)
+  tiempoLabelSpan.textContent = horasATexto(time)
+  tiempo2LabelSpan.textContent = formatTimeMinimal(time)
+
+  const obraCost = time * hourCost;
   obraLabelSpan.textContent = formatMoney(obraCost)
   totalSpan.textContent = formatMoney(materialesCost + obraCost)
 }
@@ -297,7 +351,7 @@ function initScene() {
 
   // Grid floor _________________________________________________________________
 
-  const grid = createFadingGrid(BLOCK_WIDTH, 60, 0x6b6b6b)
+  const grid = createFadingGrid(MIN_COLUMN_DISTANCE, 60, 0x6b6b6b)
   scene.add(grid);
 
   // Create floor plane
@@ -353,6 +407,17 @@ function onKeyDown(event: KeyboardEvent) {
 
     // 2. Now apply the selection after the search is done
     blocksToSelect.forEach(block => selectBlock(block));
+  } else if (event.key === 'x') {
+    if (state.selectedColumn && state.columns.length > 1) {
+      state.columns = state.columns.filter(c => c !== state.selectedColumn);
+      state.blocks = state.blocks.filter(b => !state.selectedColumn!.blocks.includes(b));
+      state.selectedColumn.destroy();
+    }
+    for (let block of state.selectedBlocks) {
+      state.blocks = state.blocks.filter(b => b !== block);
+      block.destroy();
+    }
+    recalculate();
   }
 }
 
@@ -864,9 +929,11 @@ openBtn?.addEventListener('click', () => {
   modal?.classList.add('active');
   columnPriceInput.value = columnCost.toString()
   blockPriceInput.value = blockCost.toString()
-  blockPlacingTimeInput.value = blockTime.toString()
-  columnPlacingTimeInput.value = colTime.toString()
-  hourRateInput.value = hourRate.toString()
+  blockRateInput.value = blockRate.toString()
+  columnRateInput.value = colRate.toString()
+  hourRateInput.value = hourCost.toString()
+  hDayInput.value = hDay.toString()
+  dWeekInput.value = dWeek.toString()
 });
 
 closeBtn?.addEventListener('click', () => {
@@ -888,19 +955,21 @@ modal?.addEventListener('click', (e) => {
 interface FormData {
   columnPrice: number;
   blockPrice: number;
-  blockPlacingTime: number;
-  columnPlacingTime: number;
+  blockRate: number;
+  columnRate: number;
   workCostPerHour: number;
 }
 
 form?.addEventListener('submit', (e: Event) => {
   e.preventDefault();
 
-  columnCost = parseFloat(columnPriceInput.value),
-  blockCost = parseFloat(blockPriceInput.value),
-  blockTime = parseFloat(blockPlacingTimeInput.value),
-  colTime = parseFloat(columnPlacingTimeInput.value),
-  hourRate = parseFloat(hourRateInput.value)
+  columnCost = parseFloat(columnPriceInput.value);
+  blockCost = parseFloat(blockPriceInput.value);
+  blockRate = parseFloat(blockRateInput.value);
+  colRate = parseFloat(columnRateInput.value);
+  hourCost = parseFloat(hourRateInput.value);
+  hDay = parseFloat(hDayInput.value);
+  dWeek = parseInt(dWeekInput.value);
   recalculate();
 
   modal?.classList.remove('active');
@@ -909,12 +978,14 @@ form?.addEventListener('submit', (e: Event) => {
 // Auto-start if all required URL params are present
 const config = getConfiguration();
 if (config) {
-  console.log(config)
   BLOCK_WIDTH = config.largoBlock;
   BLOCK_HEIGHT = config.alturaBlock;
   BLOCK_DEPTH = config.anchoBlock;
   COLUMN_DEPTH = config.anchoCol;
   COLUMN_WIDTH = config.anchoCol;
   COLUMN_HEIGHT = config.alturaCol;
+  MIN_COLUMN_DISTANCE = BLOCK_WIDTH + COLUMN_DEPTH;
   initScene();
+} else {
+  document.getElementById('sceneSettingsModal')!.style.display = 'grid';
 }

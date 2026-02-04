@@ -99,7 +99,13 @@ export class Column {
 }	
 
 	destroy() {
+		for (let b of this.blocks) {
+			b.destroy()
+		}
 		this.scene.remove(this.mesh);
+		for (let h of this.handles) {
+			this.scene.remove(h.mesh);
+		}
 	}
 }
 

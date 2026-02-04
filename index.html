@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Three.js + TypeScript</title>
+  <title>Prefabloq3D</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Aldrich&display=swap" rel="stylesheet">
@@ -13,115 +13,140 @@
       margin: 0;
       box-sizing: border-box;
     }
-    
-    .logo {
-      font-size: 1.5rem;
-      font-weight: 700;
-    }
 
-    body { 
-      margin: 0; 
-      overflow: hidden; 
-      position: relative;
-      background-color: black;
-      font-size: 0.9rem;
+    body {
+      background-color: #0a0a0a;
       color: rgba(224, 224, 224, 0.911);
       font-family: "Aldrich", sans-serif;
-      font-weight: 400;
-      font-style: normal;
-      width: 100vw;
-      height: 100vh;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      overflow-x: hidden;
     }
 
-    canvas { 
-      display: block; 
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
     }
 
-    .overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 10;
-      width: 100%;
-      height: 100%;
-      pointer-events: none; /* KEY FIX: Allow clicks to pass through to canvas */
-    }
+	.orange {
+      color: rgb(255, 129, 45);
+	}
 
-    /* Re-enable pointer events only on interactive UI elements */
-    .top-toolbar,
-    .info,
-    .shortcuts, 
-    .modal {
-      pointer-events: auto;
-    }
-
-    main {
-      width: 100%;
-      height: 100%;
-      position: relative;
-    }
-
-    .top-toolbar {
-      height: 60px;
+    /* Header */
+    header {
+      height: 70px;
       background: linear-gradient(180deg, rgba(20, 20, 20, 0.95) 0%, rgba(20, 20, 20, 0.85) 100%);
       backdrop-filter: blur(10px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      position: fixed;
+      width: 100%;
+      top: 0;
+      z-index: 1000;
+    }
+
+    nav {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      height: 100%;
       display: flex;
       align-items: center;
-      padding: 0 20px;
-      gap: 20px;
+      justify-content: space-between;
     }
 
-    .info {
-      position: absolute; /* Changed from being in flow */
-      top: 10px; /* Position below toolbar */
-      left: 10px;
-      padding: 20px;
-      min-width: 300px;
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+      text-decoration: none;
+    }
+
+    .logo span {
+      color: rgb(255, 129, 45);
+    }
+
+    .cta-button {
+      background-color: rgb(255, 129, 45);
+      color: black;
+      padding: 12px 30px;
+      border: none;
       border-radius: 4px;
-      width: fit-content;
-      background-color: rgba(29, 29, 29, 0.692);
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      font-family: "Aldrich", sans-serif;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-block;
     }
 
+    .cta-button:hover {
+      background-color: rgb(255, 145, 70);
+      box-shadow: 0 0 20px rgba(255, 129, 45, 0.5);
+      transform: translateY(-2px);
+    }
+
+    /* Hero Section */
+    .hero {
+      margin-top: 70px;
+      min-height: calc(100vh - 70px);
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        radial-gradient(circle at 20% 50%, rgba(255, 129, 45, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255, 129, 45, 0.05) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      padding: 60px 0;
+    }
+
+    .hero h1 {
+      font-size: 3.5rem;
+      margin-bottom: 20px;
+      color: white;
+      line-height: 1.2;
+    }
+
+    .hero h1 .highlight {
+      color: rgb(255, 129, 45);
+    }
+
+    .hero p {
+      font-size: 1.2rem;
+      margin-bottom: 40px;
+      max-width: 600px;
+      opacity: 0.9;
+    }
+
+    /* Card Component */
     .card {
       position: relative;
       border: 1px solid #3b3b3b;
-    }
-
-    .info p {
-      display: flex;
-      justify-content: space-between;
-      margin: 0;
-    }
-
-    .shortcuts {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      padding: 15px;
-      background-color: rgba(0, 0, 0, 0.85);
-      border: 1px solid #3b3b3b;
+      background-color: rgba(29, 29, 29, 0.692);
       border-radius: 4px;
-      opacity: 0.3;
-    }
-
-    .orange {
-      color: rgb(255, 129, 45);
+      padding: 30px;
     }
 
     .corner {
       position: absolute;
       width: 10px;
       height: 10px;
-      pointer-events: none; /* Corners shouldn't block clicks */
+      pointer-events: none;
     }
 
     .corner::before,
@@ -147,11 +172,7 @@
       left: -1px;
     }
 
-    .corner-top-left::before {
-      top: 0;
-      left: 0;
-    }
-
+    .corner-top-left::before,
     .corner-top-left::after {
       top: 0;
       left: 0;
@@ -177,11 +198,7 @@
       left: -1px;
     }
 
-    .corner-bottom-left::before {
-      bottom: 0;
-      left: 0;
-    }
-
+    .corner-bottom-left::before,
     .corner-bottom-left::after {
       bottom: 0;
       left: 0;
@@ -192,279 +209,491 @@
       right: -1px;
     }
 
-    .corner-bottom-right::before {
-      bottom: 0;
-      right: 0;
-    }
-
+    .corner-bottom-right::before,
     .corner-bottom-right::after {
       bottom: 0;
       right: 0;
     }
 
-    #estadisticas {
-      position: absolute;
-      right: 10px;
-      bottom: 70px;
-      opacity: 0.6;
+    /* Sections */
+    section {
+      padding: 80px 0;
     }
 
+    .section-title {
+      font-size: 2.5rem;
+      margin-bottom: 50px;
+      text-align: center;
+      color: rgb(255, 129, 45);
+    }
 
-    /* Modal Styles */
-    .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.377);
-      backdrop-filter: blur(5px);
+    /* Features Grid */
+    .features-grid {
       display: grid;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      display: none;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+      margin-top: 40px;
     }
 
-    .modal-content {
-      background: linear-gradient(145deg, rgba(20, 20, 20, 0.98) 0%, rgba(30, 30, 30, 0.98) 100%);
-      border: 1px solid #3b3b3b;
-      border-radius: 8px;
-      padding: 30px;
-      min-width: 300px;
-      max-width: 500px;
-      position: relative;
+    .feature-card {
+      padding: 25px;
+      transition: transform 0.3s;
     }
 
-    .modal.active {
-      display: flex;
+    .feature-card:hover {
+      transform: translateY(-5px);
     }
 
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 25px;
-      padding-bottom: 15px;
-      border-bottom: 1px solid rgba(255, 129, 45, 0.3);
-    }
-
-    .modal-header h2 {
+    .feature-icon {
+      font-size: 2.5rem;
+      margin-bottom: 15px;
       color: rgb(255, 129, 45);
+    }
+
+    .feature-card h3 {
       font-size: 1.3rem;
-      font-weight: 700;
+      margin-bottom: 15px;
+      color: white;
     }
 
-    .close-btn {
-      background: none;
-      border: none;
-      color: rgba(224, 224, 224, 0.911);
-      font-size: 1.5rem;
-      cursor: pointer;
-      padding: 0;
-      width: 30px;
-      height: 30px;
+    .feature-card p {
+      opacity: 0.8;
+      line-height: 1.7;
+    }
+
+    /* Benefits Section */
+    .benefits-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 25px;
+      margin-top: 40px;
+    }
+
+    .benefit-item {
+      padding: 20px;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: color 0.2s;
+      align-items: flex-start;
+      gap: 15px;
     }
 
-    .close-btn:hover {
+    .benefit-check {
+      color: rgb(255, 129, 45);
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .benefit-item h4 {
+      color: white;
+      margin-bottom: 8px;
+      font-size: 1.1rem;
+    }
+
+    /* Controls Section */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 40px;
+    }
+
+    .control-item {
+      padding: 20px;
+      text-align: center;
+    }
+
+    .key {
+      display: inline-block;
+      background-color: rgba(255, 129, 45, 0.2);
+      border: 1px solid rgb(255, 129, 45);
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-weight: 700;
+      margin-bottom: 10px;
       color: rgb(255, 129, 45);
     }
 
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      color: rgba(224, 224, 224, 0.911);
+    .control-item p {
+      opacity: 0.8;
       font-size: 0.85rem;
     }
 
-    .form-group input {
-      width: 100%;
-      padding: 10px 12px;
-      background-color: rgba(0, 0, 0, 0.5);
-      border: 1px solid #3b3b3b;
-      border-radius: 4px;
-      color: rgba(224, 224, 224, 0.911);
-      font-family: "Aldrich", sans-serif;
-      font-size: 0.9rem;
-      transition: border-color 0.2s;
+    /* Pricing Section */
+    .pricing-card {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 40px;
+      text-align: center;
     }
 
-    .form-group input:focus {
-      outline: none;
-      border-color: rgb(255, 129, 45);
-      box-shadow: 0 0 5px rgba(255, 129, 45, 0.3);
+    .pricing-card .price {
+      font-size: 3rem;
+      color: rgb(255, 129, 45);
+      margin: 20px 0;
     }
 
-    .form-group input::placeholder {
-      color: rgba(224, 224, 224, 0.4);
+    .pricing-features {
+      text-align: left;
+      margin: 30px 0;
     }
 
-    .form-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 25px;
-      padding-top: 20px;
+    .pricing-features li {
+      list-style: none;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      opacity: 0.9;
+    }
+
+    .pricing-features li::before {
+      content: '✓ ';
+      color: rgb(255, 129, 45);
+      font-weight: bold;
+      margin-right: 10px;
+    }
+
+    /* Footer */
+    footer {
+      background: linear-gradient(180deg, rgba(20, 20, 20, 0.95) 0%, rgba(10, 10, 10, 0.98) 100%);
       border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 40px 0;
+      text-align: center;
     }
 
-    .btn {
-      flex: 1;
-      padding: 12px 20px;
-      border: 1px solid #3b3b3b;
-      border-radius: 4px;
-      font-family: "Aldrich", sans-serif;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: all 0.2s;
+    footer p {
+      opacity: 0.6;
+      margin: 10px 0;
     }
 
-    .btn-primary {
-      background-color: rgb(255, 129, 45);
-      color: black;
-      border-color: rgb(255, 129, 45);
+    footer a {
+      color: rgb(255, 129, 45);
+      text-decoration: none;
     }
 
-    .btn-primary:hover {
-      background-color: rgb(255, 145, 70);
-      box-shadow: 0 0 15px rgba(255, 129, 45, 0.4);
+    footer a:hover {
+      text-decoration: underline;
     }
 
-    .btn-secondary {
-      background-color: transparent;
-      color: rgba(224, 224, 224, 0.911);
-    }
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero h1 {
+        font-size: 2.5rem;
+      }
 
-    .btn-secondary:hover {
-      background-color: rgba(255, 255, 255, 0.05);
-      border-color: rgba(255, 255, 255, 0.3);
-    }
+      .hero p {
+        font-size: 1rem;
+      }
 
+      .section-title {
+        font-size: 2rem;
+      }
+
+      .features-grid,
+      .benefits-list,
+      .controls-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="overlay">
-    <!-- Top Toolbar -->
-    <div class="top-toolbar">
-      <a href="/" style="text-decoration:none;"><div class="logo"><p style="color:white;">PREFA<span style="color:rgb(255, 129, 45);">BLOQ</span></p></div></a>
-      <button class="settings-btn" id="openSettingsBtn">⚙ CONFIGURACIÓN</button>
-    </div>
+  <!-- Header -->
+  <header>
+    <nav>
+      <a href="/" class="logo">PREFA<span>BLOQ</span>3D</a>
+      <a href="editor.html" class="cta-button">Abrir Aplicación</a>
+    </nav>
+  </header>
 
-    <main>
-      <div class="info card">
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <h1>Planificación Inteligente para<br><span class="highlight">Construcción Prefabricada</span></h1>
+        <p>Software de diseño 3D y cálculo de costos en tiempo real para proyectos de construcción con bloques y columnas prefabricadas (prefablock).</p>
+        <a href="editor.html" class="cta-button">Comenzar Ahora</a>
+      </div>
+    </div>
+  </section>
+
+  <div style="width: 100%; display: flex; justify-items: center; max-width: 1200px; margin: auto; padding-top: 20px;">
+    <img src="screenshot.png" style="width: 100%;"/>
+  </div>
+
+  <!-- What is Prefabloq -->
+  <section>
+    <div class="container">
+      <h2 class="section-title">¿Qué es Prefabloq3D?</h2>
+      <div class="card" style="max-width: 800px; margin: 0 auto;">
         <div class="corner corner-top-left"></div>
         <div class="corner corner-top-right"></div>
         <div class="corner corner-bottom-left"></div>
         <div class="corner corner-bottom-right"></div>
-        
-        <p id="columnas">columnas: <span id="columnas-span" class="orange">1</span></p>
-        <p id="bloques">bloques: <span id="bloques-span" class="orange">0</span></p>
-        <p id="tiempo">tiempo: <span id="tiempo-span" class="orange">-</span></p>
-        <p id="materiales">materiales: <span id="materiales-span" class="orange">₡0</span></p>
-        <p id="obra">obra: <span id="obra-span" class="orange">₡0</span></p>
-        <p id="total">total: <span id="total-span" class="orange">₡0</span></p>
+        <p style="font-size: 1.1rem; line-height: 1.8; text-align: center;">
+          Prefabloq3D es un software de planificación y cálculo de costos diseñado específicamente para proyectos de construcción con elementos prefabricados usando el sistema prefablock. Combina visualización 3D interactiva con cálculos estimados de materiales, mano de obra y tiempos de construcción, permitiendo a constructores, arquitectos, ingenieros o clientes tomar decisiones informadas antes de iniciar la obra.
+        </p>
       </div>
-
-      <div id="estadisticas">
-        <p id="seleccionados"></p>
-      </div>
-    </main>
-
-    <!-- Configuration Screen -->
-  <div class="modal active" id="sceneSettingsModal">
-    <div class="modal-content card">
-      <div class="corner corner-top-left"></div>
-      <div class="corner corner-top-right"></div>
-      <div class="corner corner-bottom-left"></div>
-      <div class="corner corner-bottom-right"></div>
-      
-      <div class="modal-header">
-        <h2 style="text-align: center; width: 100%;">CONFIGURACIÓN</h2>
-      </div>
-        <form id="config-form">
-          <div class="form-group">
-            <label for="anchoCol">Ancho de Columna</label>
-            <input type="number" id="anchoCol" name="anchoCol" placeholder="0" step="0.01" min="0" required value="0.3">
-          </div>
-
-          <div class="form-group">
-            <label for="alturaCol">Altura de Columna</label>
-            <input type="number" id="alturaCol" name="alturaCol" placeholder="0" step="0.01" min="0" required value="3">
-          </div>
-
-          <div class="form-group">
-            <label for="anchoBlock">Ancho de Block</label>
-            <input type="number" id="anchoBlock" name="anchoBlock" placeholder="0" step="0.01" min="0" required value="0.2">
-          </div>
-
-           <div class="form-group">
-            <label for="alturaBlock">Altura de Block</label>
-            <input type="number" id="alturaBlock" name="alturaBlock" placeholder="0" step="0.01" min="0" required value="0.41">
-          </div>
-
-         <div class="form-group">
-            <label for="largoBlock">Largo de Block</label>
-            <input type="number" id="largoBlock" name="largoBlock" placeholder="0" step="0.01" min="0" required value="1.41">
-          </div>
-          
-          <button type="submit">Start Scene</button>
-        </form>
     </div>
-  </div>
+  </section>
 
-    <!-- Settings Modal -->
-  <div class="modal inactive" id="settingsModal">
-    <div class="modal-content card">
-      <div class="corner corner-top-left"></div>
-      <div class="corner corner-top-right"></div>
-      <div class="corner corner-bottom-left"></div>
-      <div class="corner corner-bottom-right"></div>
-      
-      <div class="modal-header">
-        <h2 style="text-align: center; width: 100%;">CONFIGURACIÓN</h2>
+  <!-- Features -->
+  <section style="background-color: rgba(20, 20, 20, 0.3);">
+    <div class="container">
+      <h2 class="section-title">Funcionalidades</h2>
+      <div class="features-grid">
+        <div class="feature-card card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="feature-icon">🏗️</div>
+          <h3>Diseño 3D Interactivo</h3>
+          <p>Crea y visualiza tu proyecto en tiempo real con una interfaz 3D intuitiva. Coloca columnas y bloques con simples clics y observa tu construcción tomar forma.</p>
+        </div>
+
+        <div class="feature-card card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="feature-icon">💰</div>
+          <h3>Cálculo de Costos Automático</h3>
+          <p>Obtén presupuestos estimados al instante. El software calcula automáticamente costos de materiales y mano de obra basándose en tus parámetros personalizados.</p>
+        </div>
+
+        <div class="feature-card card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="feature-icon">⏱️</div>
+          <h3>Estimación de Tiempos</h3>
+          <p>Planifica tu cronograma. Calcula el tiempo total de construcción basado en tasas de instalación configurables de bloques y columnas.</p>
+        </div>
+
+        <div class="feature-card card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="feature-icon">⚙️</div>
+          <h3>Configuración Personalizable</h3>
+          <p>Adapta el software a tu realidad. Configura dimensiones de elementos, precios de materiales, tiempos de instalación y costos de mano de obra según tu mercado.</p>
+        </div>
+
+        <div class="feature-card card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="feature-icon">📊</div>
+          <h3>Métricas en Tiempo Real</h3>
+          <p>Monitorea constantemente las estadísticas de tu proyecto: número de columnas, bloques, costos totales y tiempos estimados actualizados automáticamente.</p>
+        </div>
+
+        <div class="feature-card card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="feature-icon">🎯</div>
+          <h3>Interfaz Intuitiva</h3>
+          <p>Navegación simple y eficiente. Controles de cámara fluidos, edición rápida y visualización clara de todos los elementos del proyecto.</p>
+        </div>
       </div>
-
-      <form id="settingsForm">
-        <div class="form-group">
-          <label for="columnPrice">Precio por Columna (₡)</label>
-          <input type="number" id="columnPrice" name="columnPrice" placeholder="0" step="0.01" min="0" required>
-        </div>
-
-        <div class="form-group">
-          <label for="blockPrice">Precio por Bloque (₡)</label>
-          <input type="number" id="blockPrice" name="blockPrice" placeholder="0" step="0.01" min="0" required>
-        </div>
-
-        <div class="form-group">
-          <label for="blockPlacingTime">Tiempo de Colocación por Bloque (minutos)</label>
-          <input type="number" id="blockPlacingTime" name="blockPlacingTime" placeholder="0" step="0.1" min="0" required>
-        </div>
-
-        <div class="form-group">
-          <label for="columnPlacingTime">Tiempo de Colocación por Columna (minutos)</label>
-          <input type="number" id="columnPlacingTime" name="columnPlacingTime" placeholder="0" step="0.1" min="0" required>
-        </div>
-
-        <div class="form-group">
-          <label for="workCostPerHour">Costo de Mano de Obra por Hora (₡)</label>
-          <input type="number" id="workCostPerHour" name="workCostPerHour" placeholder="0" step="0.01" min="0" required>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" class="btn btn-secondary" id="cancelBtn">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Guardar</button>
-        </div>
-      </form>
     </div>
+  </section>
 
-  </div>
-  <script type="module" src="/src/main.ts"></script>
+  <!-- Benefits -->
+  <section>
+    <div class="container">
+      <h2 class="section-title">Beneficios</h2>
+      <div class="benefits-list">
+        <div class="benefit-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <span class="benefit-check">✓</span>
+          <div>
+            <h4>Ahorro de Tiempo</h4>
+            <p>Elimina cálculos manuales y reduce errores. Obtén una cotización o presupuestos instantáneos que antes tomaban horas.</p>
+          </div>
+        </div>
+
+        <div class="benefit-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <span class="benefit-check">✓</span>
+          <div>
+            <h4>Precisión Mejorada</h4>
+            <p>Cálculos estimados basados en parámetros personalizados. Minimiza desperdicios y sobrecostos por estimaciones incorrectas.</p>
+          </div>
+        </div>
+
+        <div class="benefit-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <span class="benefit-check">✓</span>
+          <div>
+            <h4>Visualización Clara</h4>
+            <p>Comunica tus ideas efectivamente. Los clientes entienden mejor el proyecto al ver una representación 3D realista.</p>
+          </div>
+        </div>
+
+        <div class="benefit-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <span class="benefit-check">✓</span>
+          <div>
+            <h4>Flexibilidad Total</h4>
+            <p>Experimenta con diferentes configuraciones sin compromiso. Prueba múltiples diseños hasta encontrar la solución óptima.</p>
+          </div>
+        </div>
+
+        <div class="benefit-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <span class="benefit-check">✓</span>
+          <div>
+            <h4>Decisiones Informadas</h4>
+            <p>Compara costos y tiempos de diferentes opciones. Toma decisiones basadas en datos concretos, no en suposiciones.</p>
+          </div>
+        </div>
+
+        <div class="benefit-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <span class="benefit-check">✓</span>
+          <div>
+            <h4>Profesionalismo</h4>
+            <p>Impresiona a tus clientes con presentaciones modernas. Demuestra seriedad y experiencia desde la primera reunión.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Controls -->
+  <section style="background-color: rgba(20, 20, 20, 0.3);">
+    <div class="container">
+      <h2 class="section-title">Controles</h2>
+      <div class="controls-grid">
+        <div class="control-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="key">click izquierdo</div>
+          <p>En una columna o bloque y arrastre la flecha en su dirección para agregar nuevas columnas o bloques</p>
+        </div>
+
+        <div class="control-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="key">a</div>
+          <p>Cuando tiene seleccionado un bloque para seleccionar también bloques en la misma pared</p>
+        </div>
+
+        <div class="control-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="key">x</div>
+          <p>Para eliminar los bloques o columnas seleccionados</p>
+        </div>
+
+        <div class="control-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="key">click derecho</div>
+          <p>Y mueva el ratón para girar la camara</p>
+        </div>
+
+        <div class="control-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="key">Shift + click derecho</div>
+          <p>Y mueva el ratón para mover la cámara hacia los lados</p>
+        </div>
+
+        <div class="control-item card">
+          <div class="corner corner-top-left"></div>
+          <div class="corner corner-top-right"></div>
+          <div class="corner corner-bottom-left"></div>
+          <div class="corner corner-bottom-right"></div>
+          <div class="key">scroll</div>
+          <p>Acercar/alejar cámara (zoom)</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section>
+    <div class="container">
+      <h2 class="section-title">Acceso</h2>
+      <div class="pricing-card card">
+        <div class="corner corner-top-left"></div>
+        <div class="corner corner-top-right"></div>
+        <div class="corner corner-bottom-left"></div>
+        <div class="corner corner-bottom-right"></div>
+        <div class="price">GRATIS</div>
+        <p style="opacity: 0.8; margin-bottom: 20px;">Acceso completamente gratis</p>
+        <ul class="pricing-features">
+          <li>Diseño 3D</li>
+          <li>Cálculo de costos en tiempo real</li>
+          <li>Configuración personalizable</li>
+          <li>Estimación de tiempos</li>
+          <li>Sin límite de proyectos</li>
+          <li>Actualizaciones continuas</li>
+        </ul>
+        <a href="editor.html" class="cta-button" style="margin-top: 20px;">Comenzar Ahora</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section style="background: linear-gradient(135deg, rgba(255, 129, 45, 0.1) 0%, rgba(255, 129, 45, 0.05) 100%); padding: 100px 0;">
+    <div class="container" style="text-align: center;">
+      <h2 style="font-size: 2.5rem; color: white; margin-bottom: 20px;">Listo para Optimizar tus Proyectos?</h2>
+      <p style="font-size: 1.2rem; opacity: 0.9; margin-bottom: 40px;">Comienza a planificar de manera más inteligente hoy mismo</p>
+      <a href="editor.html" class="cta-button" style="font-size: 1rem; padding: 15px 40px;">Abrir Prefabloq3D</a>
+    </div>
+  </section>
+
+  <section style="max-width: 600px; margin: auto; display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 20px;">
+    <h2 style="font-size: 2.5rem; color: white; margin-bottom: 20px; text-align: center;">Patrocinado por:</h2>
+	<a target="_blank" href="https://construccionperezzeledon.netlify.app/" style="display: flex; align-items: center; flex-direction: column; text-decoration: none;">
+		<img src="/src/construction_icon1.webp" height="150" />
+		<p style="color: white;">Construcción Pérez Zeledón</p>
+	<a>
+	<p>Contacte al correo electrónico <a class="orange" href="mailto:crsolver@proton.me">crsolver@proton.me</a> para ser patrocinador.</p>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p style="font-size: 1.2rem; margin-bottom: 15px;"><strong>PREFA<span style="color: rgb(255, 129, 45);">BLOQ</span>3D</strong></p>
+      <p>Software de Planificación para Construcción Prefabricada</p>
+      <p style="margin-top: 20px;">Contacto: <a class="orange" href="mailto:crsolver@proton.me">crsolver@proton.me</a></p>
+      <p style="margin-top: 30px; font-size: 0.8rem;">© 2026 CRSOLVER. Todos los derechos reservados.</p>
+    </div>
+  </footer>
 </body>
 </html>
