@@ -111,7 +111,6 @@ export class Column {
 
 // Materials
 const columnMaterial = new THREE.MeshStandardMaterial({
-	color: 0x636363,
-	roughness: 0.7,
-	metalness: 0.3
+	color: 0x878787,
+	roughness: 1,
 });

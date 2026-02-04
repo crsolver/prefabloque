@@ -181,7 +181,6 @@ export class Block {
 }
 
 const blockMaterial = new THREE.MeshStandardMaterial({
-	color: 0x737373,
-	roughness: 0.6,
-	metalness: 0.2
+	color: 0x6b6b6b,
+	roughness: 1,
 });

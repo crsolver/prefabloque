@@ -2,20 +2,20 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Column } from './column';
 import { Block } from './block';
+import { loadScene, saveScene } from './serialize';
 
 // Constants
 export let BLOCK_WIDTH = 1.41;
 export let BLOCK_HEIGHT = 0.41;
 export let BLOCK_DEPTH = 0.2;
-export let COLUMN_WIDTH = 0.3;
+export let COLUMN_WIDTH = 0.2;
 export let COLUMN_HEIGHT = 3;
-export let COLUMN_DEPTH = 0.3;
-export let MIN_COLUMN_DISTANCE = 1.5;
-export let BLOCK_ADD_THRESHOLD = 0.3;
+export let COLUMN_DEPTH = COLUMN_WIDTH;
+export let MIN_COLUMN_DISTANCE = BLOCK_WIDTH + COLUMN_DEPTH;
+let showDemo = false;
 
 // Required configuration parameters
-const REQUIRED_PARAMS: (keyof SceneConfig)[] = ['alturaBlock', 'largoBlock', 'anchoBlock', 'alturaCol', 'anchoCol'];
-
+const REQUIRED_PARAMS: (keyof SceneConfig)[] = ['alturaBlock', 'largoBlock', 'anchoBlock', 'alturaCol', 'anchoCol', 'showDemo'];
 
 // Configuration type
 interface SceneConfig {
@@ -24,6 +24,7 @@ interface SceneConfig {
   anchoBlock: number;
   alturaCol: number;
   anchoCol: number;
+  showDemo: boolean;
 }
 
 // Parse URL parameters
@@ -56,6 +57,7 @@ function getConfiguration(): SceneConfig | null {
       anchoBlock: parseFloat(urlParams.anchoBlock!),
       anchoCol: parseFloat(urlParams.anchoCol!),
       alturaCol: parseFloat(urlParams.alturaCol!),
+      showDemo: urlParams.showDemo! === "true",
     };
   }
     
@@ -69,29 +71,40 @@ document.getElementById('config-form')?.addEventListener('submit', (e: Event) =>
   const formData = new FormData(e.target as HTMLFormElement);
   
   const config: SceneConfig = {
-      alturaBlock: parseFloat(formData.get('alturaBlock') as string),
-      largoBlock: parseFloat(formData.get('largoBlock') as string),
-      anchoBlock: parseFloat(formData.get('anchoBlock') as string),
-      alturaCol: parseFloat(formData.get('alturaCol') as string),
-      anchoCol: parseFloat(formData.get('anchoCol') as string)
+    alturaBlock: parseFloat(formData.get('alturaBlock') as string),
+    largoBlock: parseFloat(formData.get('largoBlock') as string),
+    anchoBlock: parseFloat(formData.get('anchoBlock') as string),
+    alturaCol: parseFloat(formData.get('alturaCol') as string),
+    anchoCol: parseFloat(formData.get('anchoCol') as string),
+    showDemo: false,
   };
   
   // Update URL with parameters
   const params = new URLSearchParams({
-      alturaBlock: config.alturaBlock.toString(),
-      largoBlock: config.largoBlock.toString(),
-      anchoBlock: config.anchoBlock.toString(),
-      alturaCol: config.alturaCol.toString(),
-      anchoCol: config.anchoCol.toString()
+    alturaBlock: config.alturaBlock.toString(),
+    largoBlock: config.largoBlock.toString(),
+    anchoBlock: config.anchoBlock.toString(),
+    alturaCol: config.alturaCol.toString(),
+    anchoCol: config.anchoCol.toString(),
+    showDemo: "false",
   });
   
   // Update URL without reloading page
   const newUrl = `${window.location.pathname}?${params.toString()}`;
   window.history.pushState({}, '', newUrl);
+
+  BLOCK_WIDTH = config.largoBlock;
+  BLOCK_HEIGHT = config.alturaBlock;
+  BLOCK_DEPTH = config.anchoBlock;
+  COLUMN_DEPTH = config.anchoCol;
+  COLUMN_WIDTH = config.anchoCol;
+  COLUMN_HEIGHT = config.alturaCol;
+  MIN_COLUMN_DISTANCE = BLOCK_WIDTH + COLUMN_DEPTH;
+  showDemo = config.showDemo;
   
   // Initialize scene
   initScene();
-});
+}); 
 
 
 export interface Position {
@@ -108,7 +121,7 @@ type Direction = 'north' | 'south' | 'east' | 'west'
 
 // Global state
 
-interface State {
+export interface State {
   columns: Column[],
   blocks: Block[],
   selectedColumn: Column | null,
@@ -288,6 +301,8 @@ let camera: THREE.PerspectiveCamera;
 let canvas: HTMLCanvasElement;
 let renderer: THREE.WebGLRenderer;
 
+const demo = `{"columns":[{"x":0,"z":1.6099999999999999},{"x":0,"z":3.2199999999999998},{"x":0,"z":4.83},{"x":1.6099999999999999,"z":4.83},{"x":3.2199999999999998,"z":4.83},{"x":0,"z":6.4399999999999995},{"x":-1.6099999999999999,"z":6.4399999999999995},{"x":-3.2199999999999998,"z":6.4399999999999995},{"x":-3.2199999999999998,"z":4.83},{"x":-3.2199999999999998,"z":3.2199999999999998},{"x":-3.2199999999999998,"z":1.6099999999999994},{"x":-3.2199999999999998,"z":0},{"x":-3.2199999999999998,"z":-1.6099999999999994},{"x":3.2199999999999998,"z":3.22},{"x":3.2199999999999998,"z":1.6100000000000003},{"x":3.2199999999999998,"z":-1.6099999999999994},{"x":1.6099999999999999,"z":1.6099999999999999},{"x":1.6099999999999999,"z":0},{"x":1.6099999999999999,"z":-1.6099999999999999},{"x":0,"z":-1.6099999999999999},{"x":0,"z":-3.2199999999999998},{"x":0,"z":-4.83},{"x":1.6099999999999999,"z":-4.83},{"x":3.2199999999999998,"z":-4.83},{"x":3.2199999999999998,"z":-3.22},{"x":4.83,"z":1.6100000000000003},{"x":4.83,"z":4.440892098500626e-16},{"x":4.83,"z":-1.6099999999999994},{"x":-3.2199999999999998,"z":-3.2199999999999993},{"x":-3.2199999999999998,"z":-4.829999999999999},{"x":-1.6099999999999999,"z":-4.829999999999999},{"x":-1.6099999999999999,"z":-1.6099999999999994}],"blocks":[{"id":"xvt6ovv1hl","fromColumnIndex":0,"toColumnIndex":1,"y":0.205},{"id":"btfpclyu3xe","fromColumnIndex":1,"toColumnIndex":2,"y":0.205},{"id":"k98tp9b7y1a","fromColumnIndex":3,"toColumnIndex":4,"y":0.205},{"id":"q62wcdbkzq","fromColumnIndex":5,"toColumnIndex":6,"y":0.205},{"id":"imcq8r3zhhh","fromColumnIndex":6,"toColumnIndex":7,"y":0.205},{"id":"zqucb0q01n","fromColumnIndex":7,"toColumnIndex":8,"y":0.205},{"id":"82yxs4xrkgd","fromColumnIndex":8,"toColumnIndex":9,"y":0.205},{"id":"oy7xtld9xrf","fromColumnIndex":9,"toColumnIndex":10,"y":0.205},{"id":"3azoz4oqd7a","fromColumnIndex":10,"toColumnIndex":11,"y":0.205},{"id":"r5n5ghatzyg","fromColumnIndex":4,"toColumnIndex":13,"y":0.205},{"id":"jqavd2jbvpf","fromColumnIndex":13,"toColumnIndex":14,"y":0.205},{"id":"tw4t47psg8m","fromColumnIndex":16,"toColumnIndex":14,"y":0.205},{"id":"ymakdw7hmos","fromColumnIndex":8,"toColumnIndex":9,"y":0.615},{"id":"mrnt9bcfake","fromColumnIndex":8,"toColumnIndex":9,"y":1.025},{"id":"0pafrhmw3gs","fromColumnIndex":1,"toColumnIndex":2,"y":0.615},{"id":"xxsox6rl2il","fromColumnIndex":1,"toColumnIndex":2,"y":1.025},{"id":"d128eqfvx7b","fromColumnIndex":5,"toColumnIndex":6,"y":0.615},{"id":"isinvf4ndr","fromColumnIndex":5,"toColumnIndex":6,"y":1.025},{"id":"cd2ez4nk7sa","fromColumnIndex":4,"toColumnIndex":13,"y":0.615},{"id":"0bzei85szhbd","fromColumnIndex":4,"toColumnIndex":13,"y":1.025},{"id":"uw1188w71c9","fromColumnIndex":7,"toColumnIndex":8,"y":0.615},{"id":"hctoh9pub5","fromColumnIndex":7,"toColumnIndex":8,"y":1.025},{"id":"s343ag78m3o","fromColumnIndex":0,"toColumnIndex":1,"y":0.615},{"id":"6xu506zu5cr","fromColumnIndex":0,"toColumnIndex":1,"y":1.025},{"id":"xtsaszwon4n","fromColumnIndex":13,"toColumnIndex":14,"y":0.615},{"id":"rbyrnvptyxk","fromColumnIndex":13,"toColumnIndex":14,"y":1.025},{"id":"vnxgvpi69t","fromColumnIndex":8,"toColumnIndex":9,"y":1.4349999999999998},{"id":"ijbn6gscknc","fromColumnIndex":1,"toColumnIndex":2,"y":1.4349999999999998},{"id":"1zl9dtig5w7","fromColumnIndex":5,"toColumnIndex":6,"y":1.4349999999999998},{"id":"ffgpiifghpp","fromColumnIndex":4,"toColumnIndex":13,"y":1.4349999999999998},{"id":"mypz2h35pf","fromColumnIndex":7,"toColumnIndex":8,"y":1.4349999999999998},{"id":"7yxt059wa2e","fromColumnIndex":0,"toColumnIndex":1,"y":1.4349999999999998},{"id":"542bz8qbby","fromColumnIndex":13,"toColumnIndex":14,"y":1.4349999999999998},{"id":"x8dce6ia0h","fromColumnIndex":8,"toColumnIndex":9,"y":1.8449999999999998},{"id":"tz2onq11e7","fromColumnIndex":1,"toColumnIndex":2,"y":1.8449999999999998},{"id":"thltif8rqs","fromColumnIndex":5,"toColumnIndex":6,"y":1.8449999999999998},{"id":"5auy9ruv4v3","fromColumnIndex":4,"toColumnIndex":13,"y":1.8449999999999998},{"id":"vzclbi6zis","fromColumnIndex":7,"toColumnIndex":8,"y":1.8449999999999998},{"id":"329b10hw86q","fromColumnIndex":0,"toColumnIndex":1,"y":1.8449999999999998},{"id":"wpinb1up7o","fromColumnIndex":13,"toColumnIndex":14,"y":1.8449999999999998},{"id":"zvl0jak38og","fromColumnIndex":8,"toColumnIndex":9,"y":2.255},{"id":"lr9xk8ovgh","fromColumnIndex":1,"toColumnIndex":2,"y":2.255},{"id":"p1zyndpg7t","fromColumnIndex":5,"toColumnIndex":6,"y":2.255},{"id":"mnnbevmenm","fromColumnIndex":4,"toColumnIndex":13,"y":2.255},{"id":"20wgzw0s9rz","fromColumnIndex":7,"toColumnIndex":8,"y":2.255},{"id":"nukiump69k","fromColumnIndex":0,"toColumnIndex":1,"y":2.255},{"id":"z82ieisjejb","fromColumnIndex":13,"toColumnIndex":14,"y":2.255},{"id":"e4kfcl0acv","fromColumnIndex":8,"toColumnIndex":9,"y":2.665},{"id":"feckhd1vnx","fromColumnIndex":1,"toColumnIndex":2,"y":2.665},{"id":"hpsfg4nlirk","fromColumnIndex":5,"toColumnIndex":6,"y":2.665},{"id":"hjiee4fr6g","fromColumnIndex":3,"toColumnIndex":4,"y":2.665},{"id":"hwgl91rslf","fromColumnIndex":4,"toColumnIndex":13,"y":2.665},{"id":"84voohbo7pw","fromColumnIndex":7,"toColumnIndex":8,"y":2.665},{"id":"76iikbhixcs","fromColumnIndex":9,"toColumnIndex":10,"y":2.665},{"id":"g2htorlijjj","fromColumnIndex":10,"toColumnIndex":11,"y":2.665},{"id":"5vhw7fjqod8","fromColumnIndex":11,"toColumnIndex":12,"y":2.665},{"id":"22yfmrus1vt","fromColumnIndex":0,"toColumnIndex":1,"y":2.665},{"id":"eb666km9zzj","fromColumnIndex":2,"toColumnIndex":5,"y":2.665},{"id":"0hgcr0hqv4h","fromColumnIndex":6,"toColumnIndex":7,"y":2.665},{"id":"86jnc3naznd","fromColumnIndex":13,"toColumnIndex":14,"y":2.665},{"id":"u4y59hu3ren","fromColumnIndex":16,"toColumnIndex":14,"y":0.615},{"id":"tdf8t75exvh","fromColumnIndex":16,"toColumnIndex":14,"y":1.025},{"id":"8jg59bckqp","fromColumnIndex":16,"toColumnIndex":14,"y":1.4349999999999998},{"id":"zz9a42aqeon","fromColumnIndex":16,"toColumnIndex":14,"y":1.8449999999999998},{"id":"jcszsmqoqgg","fromColumnIndex":16,"toColumnIndex":14,"y":2.255},{"id":"9fntafbhdes","fromColumnIndex":16,"toColumnIndex":14,"y":2.665},{"id":"uzj6lg1lrtc","fromColumnIndex":0,"toColumnIndex":16,"y":2.665},{"id":"3p7jv57w0wt","fromColumnIndex":2,"toColumnIndex":3,"y":0.205},{"id":"6qsnjdxpsev","fromColumnIndex":2,"toColumnIndex":3,"y":0.615},{"id":"a02zle1k5b","fromColumnIndex":2,"toColumnIndex":3,"y":1.025},{"id":"n38tmqodkn","fromColumnIndex":2,"toColumnIndex":3,"y":1.4349999999999998},{"id":"bknkr5nn4ln","fromColumnIndex":2,"toColumnIndex":3,"y":1.8449999999999998},{"id":"avejgajsqsb","fromColumnIndex":2,"toColumnIndex":3,"y":2.255},{"id":"wev833o0pnm","fromColumnIndex":2,"toColumnIndex":3,"y":2.6649999999999996},{"id":"lbtfirl1cw","fromColumnIndex":17,"toColumnIndex":16,"y":0.205},{"id":"pkod0a1het","fromColumnIndex":18,"toColumnIndex":15,"y":0.205},{"id":"javavcsym9m","fromColumnIndex":19,"toColumnIndex":20,"y":0.205},{"id":"5hrt0zexopx","fromColumnIndex":20,"toColumnIndex":21,"y":0.205},{"id":"hl6pz7rigj6","fromColumnIndex":21,"toColumnIndex":22,"y":0.205},{"id":"dlb13zerhuh","fromColumnIndex":22,"toColumnIndex":23,"y":0.205},{"id":"ojzt3chc3p","fromColumnIndex":23,"toColumnIndex":24,"y":0.205},{"id":"zxese1khi","fromColumnIndex":24,"toColumnIndex":15,"y":0.205},{"id":"a86pfrva8gh","fromColumnIndex":24,"toColumnIndex":15,"y":0.615},{"id":"23n2ibnjzqg","fromColumnIndex":24,"toColumnIndex":15,"y":1.025},{"id":"z2q9ag5x6mr","fromColumnIndex":20,"toColumnIndex":21,"y":0.615},{"id":"tc3cw8ex0p","fromColumnIndex":20,"toColumnIndex":21,"y":1.025},{"id":"c52bdz5mmfl","fromColumnIndex":23,"toColumnIndex":24,"y":0.615},{"id":"ynbvts70iw","fromColumnIndex":23,"toColumnIndex":24,"y":1.025},{"id":"4d2cpmu05v2","fromColumnIndex":21,"toColumnIndex":22,"y":0.615},{"id":"ciqo4q1ciyw","fromColumnIndex":21,"toColumnIndex":22,"y":1.025},{"id":"yq31fruttl","fromColumnIndex":19,"toColumnIndex":20,"y":0.615},{"id":"6hkn4hkj1ro","fromColumnIndex":19,"toColumnIndex":20,"y":1.025},{"id":"nqqq5zpp91q","fromColumnIndex":24,"toColumnIndex":15,"y":1.4349999999999998},{"id":"w0ah8qnzzo","fromColumnIndex":20,"toColumnIndex":21,"y":1.4349999999999998},{"id":"z4pj2gdl59","fromColumnIndex":23,"toColumnIndex":24,"y":1.4349999999999998},{"id":"dcny6a7wyc","fromColumnIndex":21,"toColumnIndex":22,"y":1.4349999999999998},{"id":"6prg06sm97a","fromColumnIndex":19,"toColumnIndex":20,"y":1.4349999999999998},{"id":"exq5fzt4dwp","fromColumnIndex":24,"toColumnIndex":15,"y":1.8449999999999998},{"id":"c2v1mrm35cs","fromColumnIndex":20,"toColumnIndex":21,"y":1.8449999999999998},{"id":"3s5iq0c9qep","fromColumnIndex":23,"toColumnIndex":24,"y":1.8449999999999998},{"id":"77xvv9b3xcv","fromColumnIndex":21,"toColumnIndex":22,"y":1.8449999999999998},{"id":"cr506t3ss6s","fromColumnIndex":19,"toColumnIndex":20,"y":1.8449999999999998},{"id":"5rd8ks0dmdl","fromColumnIndex":24,"toColumnIndex":15,"y":2.255},{"id":"p9l36w7jwvp","fromColumnIndex":20,"toColumnIndex":21,"y":2.255},{"id":"h3vycewmt3n","fromColumnIndex":23,"toColumnIndex":24,"y":2.255},{"id":"2rspf8cf4xh","fromColumnIndex":21,"toColumnIndex":22,"y":2.255},{"id":"gyqwtmqhq19","fromColumnIndex":19,"toColumnIndex":20,"y":2.255},{"id":"7c5s9smc3hw","fromColumnIndex":24,"toColumnIndex":15,"y":2.665},{"id":"rnlu5y2h8ro","fromColumnIndex":22,"toColumnIndex":23,"y":2.665},{"id":"l2v5disqlam","fromColumnIndex":18,"toColumnIndex":19,"y":2.665},{"id":"obj5stsfrtm","fromColumnIndex":20,"toColumnIndex":21,"y":2.665},{"id":"7pbs0pqjm4s","fromColumnIndex":23,"toColumnIndex":24,"y":2.665},{"id":"69git242ktm","fromColumnIndex":21,"toColumnIndex":22,"y":2.665},{"id":"4s8yzy39wu8","fromColumnIndex":19,"toColumnIndex":20,"y":2.665},{"id":"4a6fd9zn70j","fromColumnIndex":18,"toColumnIndex":15,"y":0.615},{"id":"0u7nz9de4yj","fromColumnIndex":18,"toColumnIndex":15,"y":1.025},{"id":"l115p50nhco","fromColumnIndex":18,"toColumnIndex":15,"y":1.4349999999999998},{"id":"nmjbq2slzuo","fromColumnIndex":18,"toColumnIndex":15,"y":1.8449999999999998},{"id":"2tkb1q7jegs","fromColumnIndex":18,"toColumnIndex":15,"y":2.255},{"id":"y6bp17oz7j","fromColumnIndex":18,"toColumnIndex":15,"y":2.665},{"id":"436sgw7bxg","fromColumnIndex":17,"toColumnIndex":18,"y":2.665},{"id":"n8a6n38ejnm","fromColumnIndex":17,"toColumnIndex":16,"y":0.615},{"id":"mi9oi70cpo","fromColumnIndex":17,"toColumnIndex":16,"y":1.025},{"id":"tuejiynhi8","fromColumnIndex":17,"toColumnIndex":16,"y":1.435},{"id":"u9960jx4ul8","fromColumnIndex":17,"toColumnIndex":16,"y":1.845},{"id":"79idm97dsjh","fromColumnIndex":17,"toColumnIndex":16,"y":2.255},{"id":"x8tsm88rkif","fromColumnIndex":17,"toColumnIndex":16,"y":2.665},{"id":"xyqrv1awudb","fromColumnIndex":14,"toColumnIndex":25,"y":0.205},{"id":"ldn8848x4o9","fromColumnIndex":25,"toColumnIndex":26,"y":0.205},{"id":"wmdxd6v3ich","fromColumnIndex":26,"toColumnIndex":27,"y":0.205},{"id":"1frfumb3p11h","fromColumnIndex":27,"toColumnIndex":15,"y":0.205},{"id":"82bqfh6kn7h","fromColumnIndex":14,"toColumnIndex":25,"y":0.615},{"id":"vihp6a462a","fromColumnIndex":14,"toColumnIndex":25,"y":1.025},{"id":"3o0syrct20t","fromColumnIndex":25,"toColumnIndex":26,"y":0.615},{"id":"8hid3b5a043","fromColumnIndex":25,"toColumnIndex":26,"y":1.025},{"id":"0hd2xh39lero","fromColumnIndex":27,"toColumnIndex":15,"y":0.615},{"id":"jqk9mgkt2j","fromColumnIndex":27,"toColumnIndex":15,"y":1.025},{"id":"161jmzl0x92","fromColumnIndex":26,"toColumnIndex":27,"y":0.615},{"id":"lgrvqcs2fg","fromColumnIndex":26,"toColumnIndex":27,"y":1.025},{"id":"uakps8mvdfl","fromColumnIndex":14,"toColumnIndex":25,"y":1.4349999999999998},{"id":"lwbgrbv128l","fromColumnIndex":25,"toColumnIndex":26,"y":1.4349999999999998},{"id":"akm525hfa0b","fromColumnIndex":27,"toColumnIndex":15,"y":1.4349999999999998},{"id":"5zlbs57i8u7","fromColumnIndex":26,"toColumnIndex":27,"y":1.4349999999999998},{"id":"gkwp0jhxt6","fromColumnIndex":14,"toColumnIndex":25,"y":1.8449999999999998},{"id":"4k792xxlae7","fromColumnIndex":25,"toColumnIndex":26,"y":1.8449999999999998},{"id":"pao32wwsy7","fromColumnIndex":27,"toColumnIndex":15,"y":1.8449999999999998},{"id":"ca2odn3h97t","fromColumnIndex":26,"toColumnIndex":27,"y":1.8449999999999998},{"id":"kklr4a4a5w","fromColumnIndex":14,"toColumnIndex":25,"y":2.255},{"id":"ozu0rip9fi","fromColumnIndex":27,"toColumnIndex":15,"y":2.255},{"id":"fjeohdpi8o4","fromColumnIndex":14,"toColumnIndex":25,"y":2.665},{"id":"m767th04w5g","fromColumnIndex":25,"toColumnIndex":26,"y":2.665},{"id":"ujxqnjmyig","fromColumnIndex":27,"toColumnIndex":15,"y":2.665},{"id":"n3e8iewycqe","fromColumnIndex":26,"toColumnIndex":27,"y":2.665},{"id":"7fdo6z37le2","fromColumnIndex":12,"toColumnIndex":28,"y":0.205},{"id":"c1jp6ltyla","fromColumnIndex":28,"toColumnIndex":29,"y":0.205},{"id":"nih9f6b5gg","fromColumnIndex":29,"toColumnIndex":30,"y":0.205},{"id":"biurq3sjb7p","fromColumnIndex":30,"toColumnIndex":21,"y":0.205},{"id":"bbcs0qdq6ei","fromColumnIndex":12,"toColumnIndex":31,"y":0.205},{"id":"ff1jek8yhfm","fromColumnIndex":28,"toColumnIndex":29,"y":0.615},{"id":"avyhjmeqsxa","fromColumnIndex":28,"toColumnIndex":29,"y":1.025},{"id":"rd2p12ffafg","fromColumnIndex":12,"toColumnIndex":28,"y":0.615},{"id":"vcs9659dwu","fromColumnIndex":12,"toColumnIndex":28,"y":1.025},{"id":"b24duiylb1w","fromColumnIndex":30,"toColumnIndex":21,"y":0.615},{"id":"ticdtzupmfe","fromColumnIndex":30,"toColumnIndex":21,"y":1.025},{"id":"fbgui1e7p7f","fromColumnIndex":28,"toColumnIndex":29,"y":1.4349999999999998},{"id":"nbspreq1cb","fromColumnIndex":28,"toColumnIndex":29,"y":1.8449999999999998},{"id":"3i0e4l061ec","fromColumnIndex":12,"toColumnIndex":28,"y":1.4349999999999998},{"id":"mgktlghco1r","fromColumnIndex":12,"toColumnIndex":28,"y":1.8449999999999998},{"id":"4cmtzcqtefj","fromColumnIndex":30,"toColumnIndex":21,"y":1.4349999999999998},{"id":"g1ahbsjig","fromColumnIndex":30,"toColumnIndex":21,"y":1.8449999999999998},{"id":"l726x78yf7g","fromColumnIndex":28,"toColumnIndex":29,"y":2.255},{"id":"npqw9odfjli","fromColumnIndex":12,"toColumnIndex":28,"y":2.255},{"id":"vtauq7yjlq","fromColumnIndex":30,"toColumnIndex":21,"y":2.255},{"id":"h3k2p610v1r","fromColumnIndex":28,"toColumnIndex":29,"y":2.665},{"id":"4czl0u8mpxw","fromColumnIndex":12,"toColumnIndex":28,"y":2.665},{"id":"ys88enjyzf","fromColumnIndex":30,"toColumnIndex":21,"y":2.665},{"id":"3hk96771j6h","fromColumnIndex":29,"toColumnIndex":30,"y":2.665},{"id":"qo1k24bb6bk","fromColumnIndex":12,"toColumnIndex":31,"y":0.615},{"id":"cg3i06ltblm","fromColumnIndex":12,"toColumnIndex":31,"y":1.025},{"id":"1mxfx8fw2z7","fromColumnIndex":12,"toColumnIndex":31,"y":1.4349999999999998},{"id":"b5dsdh6p3f","fromColumnIndex":12,"toColumnIndex":31,"y":1.8449999999999998},{"id":"0zm921iz7x3","fromColumnIndex":12,"toColumnIndex":31,"y":2.255},{"id":"wi06lbykfki","fromColumnIndex":12,"toColumnIndex":31,"y":2.665},{"id":"e7fltdo2i6a","fromColumnIndex":31,"toColumnIndex":19,"y":2.665},{"id":"bit3hqrudh4","fromColumnIndex":10,"toColumnIndex":11,"y":0.615},{"id":"ghuj4c7kd8","fromColumnIndex":10,"toColumnIndex":11,"y":1.025},{"id":"h4qrtyih7pk","fromColumnIndex":10,"toColumnIndex":11,"y":1.4349999999999998},{"id":"l5xqh4hxqq","fromColumnIndex":10,"toColumnIndex":11,"y":1.8449999999999998},{"id":"30l9can8yvw","fromColumnIndex":10,"toColumnIndex":11,"y":2.255}]}`
+
 // Scene setup ________________________________________________________________
 function initScene() {
   document.getElementById('sceneSettingsModal')!.style.display = 'none';
@@ -302,7 +317,7 @@ function initScene() {
     0.1,
     1000
   );
-  camera.position.set(4, 4, 4);
+  camera.position.set(6, 6, 6);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.shadowMap.enabled = true;
@@ -310,7 +325,6 @@ function initScene() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   canvas = renderer.domElement
   document.body.appendChild(canvas);
-
 
   // Controls ___________________________________________________________________
 
@@ -365,7 +379,11 @@ function initScene() {
   floor.receiveShadow = true;
   //scene.add(floor);
 
-  state.columns.push(new Column(scene, 0, 0));
+  if (showDemo) {
+    loadScene(scene, state, demo)
+  } else {
+    state.columns.push(new Column(scene, 0, 0));
+  }
   recalculate()
   // Raycaster for picking
   // Event Listeners ____________________________________________________________
@@ -393,6 +411,9 @@ function onKeyDown(event: KeyboardEvent) {
     state.shiftPressed = true;
   }
 
+  if (event.key === 's') {
+    //console.log(saveScene(state))
+  }
   if (event.key === 'a') {
     // 1. Create a snapshot/copy of the currently selected blocks 
     // or collect the new ones in a separate list.
@@ -927,13 +948,7 @@ const form: HTMLElement | null = document.getElementById('settingsForm');
 
 openBtn?.addEventListener('click', () => {
   modal?.classList.add('active');
-  columnPriceInput.value = columnCost.toString()
-  blockPriceInput.value = blockCost.toString()
-  blockRateInput.value = blockRate.toString()
-  columnRateInput.value = colRate.toString()
-  hourRateInput.value = hourCost.toString()
-  hDayInput.value = hDay.toString()
-  dWeekInput.value = dWeek.toString()
+  
 });
 
 closeBtn?.addEventListener('click', () => {
@@ -985,7 +1000,13 @@ if (config) {
   COLUMN_WIDTH = config.anchoCol;
   COLUMN_HEIGHT = config.alturaCol;
   MIN_COLUMN_DISTANCE = BLOCK_WIDTH + COLUMN_DEPTH;
+  showDemo = config.showDemo;
   initScene();
 } else {
+  (document.getElementById('anchoCol')! as HTMLInputElement).value = COLUMN_WIDTH.toString();
+  (document.getElementById('alturaCol')! as HTMLInputElement).value = COLUMN_HEIGHT.toString();
+  (document.getElementById('anchoBlock')! as HTMLInputElement).value = BLOCK_DEPTH.toString();
+  (document.getElementById('alturaBlock')! as HTMLInputElement).value = BLOCK_HEIGHT.toString();
+  (document.getElementById('largoBlock')! as HTMLInputElement).value = BLOCK_WIDTH.toString();
   document.getElementById('sceneSettingsModal')!.style.display = 'grid';
 }
