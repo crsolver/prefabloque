@@ -1001,6 +1001,10 @@ if (config) {
   COLUMN_HEIGHT = config.alturaCol;
   MIN_COLUMN_DISTANCE = BLOCK_WIDTH + COLUMN_DEPTH;
   showDemo = config.showDemo;
+  fetch('https://ntfy.sh/prefabloq3d', {
+    method: 'POST', // PUT works too
+    body: 'Auto-started prefabloq3d with URL parameters',
+  })
   initScene();
 } else {
   (document.getElementById('anchoCol')! as HTMLInputElement).value = COLUMN_WIDTH.toString();
